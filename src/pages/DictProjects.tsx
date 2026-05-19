@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   FolderKanban, Search, ChevronLeft, ChevronRight, Plus,
   CheckCircle2, Clock, Circle,
-  Building2, Calendar, ArrowUpDown, BarChart3, Loader2
+  Building2, Calendar, ArrowUpDown, BarChart3, Loader2, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../services/api';
 import { projects, generateMilestones } from '../data/mockData';
+import { useToast } from '../context/ToastContext';
 import type { Site, DictProjectEntry } from '../types';
 
 interface ProjectWithStats {
@@ -35,6 +36,9 @@ export default function DictProjects() {
   const [sortField, setSortField] = useState('siteName');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const [showSaveEntry, setShowSaveEntry] = useState(false);
+  const [entrySiteId, setEntrySiteId] = useState<string | null>(null);
+  const toast = useToast();
   const pageSize = 12;
 
   useEffect(() => {
@@ -204,7 +208,10 @@ export default function DictProjects() {
               <p className="text-2xl font-bold" style={{ color: activeProject?.color }}>{activeProject?.completion_rate}%</p>
               <p className="text-xs text-slate-400">Completion Rate</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-dict-blue text-white rounded-lg text-sm hover:bg-blue-900">
+            <button
+              onClick={() => { setEntrySiteId(null); setShowSaveEntry(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-dict-blue text-white rounded-lg text-sm hover:bg-blue-900"
+            >
               <Plus size={14} /> Add Entry
             </button>
           </div>
@@ -321,7 +328,28 @@ export default function DictProjects() {
 
       <AnimatePresence>
         {selectedSite && (
-          <SiteDetailModal site={selectedSite} projectId={selectedProject} onClose={() => setSelectedSite(null)} />
+          <SiteDetailModal
+            site={selectedSite}
+            projectId={selectedProject}
+            onClose={() => setSelectedSite(null)}
+            onAddEntry={() => { setEntrySiteId(selectedSite.id); setShowSaveEntry(true); }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSaveEntry && selectedProject && (
+          <SaveEntryModal
+            projectId={selectedProject}
+            siteId={entrySiteId}
+            sites={sites}
+            onClose={() => { setShowSaveEntry(false); setEntrySiteId(null); }}
+            onSuccess={() => {
+              setShowSaveEntry(false);
+              setEntrySiteId(null);
+              toast.success('Accomplishment entry saved');
+            }}
+          />
         )}
       </AnimatePresence>
     </div>
@@ -375,8 +403,19 @@ function MilestonesPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function SiteDetailModal({ site, projectId, onClose }: { site: Site; projectId: string; onClose: () => void }) {
+function SiteDetailModal({ site, projectId, onClose, onAddEntry }: { site: Site; projectId: string; onClose: () => void; onAddEntry: () => void }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'entries'>('overview');
+  const [entries, setEntries] = useState<DictProjectEntry[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'entries') {
+      setLoadingEntries(true);
+      api.get<DictProjectEntry[]>(`entries.list`, { site_id: site.id, project_id: projectId })
+        .then(res => { setEntries(res.data); setLoadingEntries(false); })
+        .catch(() => setLoadingEntries(false));
+    }
+  }, [activeTab, site.id, projectId]);
 
   return (
     <motion.div
@@ -428,10 +467,56 @@ function SiteDetailModal({ site, projectId, onClose }: { site: Site; projectId: 
 
           {activeTab === 'entries' && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-400 text-center py-8">Accomplishment entries will appear here once submitted.</p>
-              <button className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors">
-                + Add Accomplishment Entry
-              </button>
+              {loadingEntries ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-dict-blue" />
+                </div>
+              ) : entries.length === 0 ? (
+                <>
+                  <p className="text-sm text-slate-400 text-center py-8">No accomplishment entries yet.</p>
+                  <button
+                    onClick={onAddEntry}
+                    className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                  >
+                    + Add Accomplishment Entry
+                  </button>
+                </>
+              ) : (
+                <>
+                  {entries.map(entry => (
+                    <div key={entry.id} className="p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <FileText size={14} className="text-dict-blue" />
+                          <span className="text-sm font-medium text-slate-700">{entry.date}</span>
+                        </div>
+                        <StatusBadge status={entry.status} />
+                      </div>
+                      <div className="mb-2">
+                        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-dict-blue rounded-full"
+                            style={{ width: `${entry.accomplishmentPercent}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{entry.accomplishmentPercent}% accomplished</p>
+                      </div>
+                      {entry.deliverables && (
+                        <p className="text-xs text-slate-600 mb-1"><span className="font-medium">Deliverables:</span> {entry.deliverables}</p>
+                      )}
+                      {entry.remarks && (
+                        <p className="text-xs text-slate-500"><span className="font-medium">Remarks:</span> {entry.remarks}</p>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={onAddEntry}
+                    className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                  >
+                    + Add Another Entry
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -446,5 +531,182 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{label}</p>
       <p className="text-sm font-medium text-slate-700 mt-0.5">{value}</p>
     </div>
+  );
+}
+
+function SaveEntryModal({
+  projectId,
+  siteId,
+  sites,
+  onClose,
+  onSuccess,
+}: {
+  projectId: string;
+  siteId: string | null;
+  sites: Site[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedSite, setSelectedSite] = useState(siteId || '');
+  const [status, setStatus] = useState('ONGOING');
+  const [accomplishmentPercent, setAccomplishmentPercent] = useState(0);
+  const [deliverables, setDeliverables] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post('entries.create', {
+        project_id: parseInt(projectId, 10),
+        site_id: selectedSite ? parseInt(selectedSite, 10) : null,
+        date,
+        status,
+        accomplishment_percent: accomplishmentPercent,
+        deliverables: deliverables || null,
+        remarks: remarks || null,
+      });
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save entry');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <FileText size={18} className="text-dict-blue" />
+              Add Accomplishment Entry
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Record progress for this project</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto max-h-[70vh] space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              >
+                <option value="PLANNED">Planned</option>
+                <option value="ONGOING">Ongoing</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="DELAYED">Delayed</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Site (optional)</label>
+            <select
+              value={selectedSite}
+              onChange={e => setSelectedSite(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+            >
+              <option value="">-- General project entry --</option>
+              {sites.map(s => (
+                <option key={s.id} value={s.id}>{s.siteName} ({s.siteCode})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Accomplishment: <span className="text-dict-blue font-bold">{accomplishmentPercent}%</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={accomplishmentPercent}
+              onChange={e => setAccomplishmentPercent(parseInt(e.target.value, 10))}
+              className="w-full accent-dict-blue"
+            />
+            <div className="flex justify-between text-[10px] text-slate-400">
+              <span>0%</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Deliverables</label>
+            <textarea
+              value={deliverables}
+              onChange={e => setDeliverables(e.target.value)}
+              placeholder="What was delivered or accomplished..."
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
+            <textarea
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder="Additional notes or issues..."
+              rows={2}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-dict-blue text-white rounded-lg text-sm font-medium hover:bg-blue-900 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={14} /> Save Entry
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 }
