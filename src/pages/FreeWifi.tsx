@@ -23,6 +23,9 @@ export default function FreeWifi() {
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importType, setImportType] = useState<'logs' | 'sites'>('logs');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<string>('siteName');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -91,6 +94,24 @@ export default function FreeWifi() {
     }
   };
 
+  const handleExportLogs = async () => {
+    try {
+      await api.download('logs.export', `logs_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      toast.success('Logs exported successfully');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
+  const handleExportSites = async () => {
+    try {
+      await api.download('sites.export', `sites_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      toast.success('Sites exported successfully');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -116,12 +137,25 @@ export default function FreeWifi() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+          >
             <Upload size={14} /> Import
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
-            <Download size={14} /> Export
-          </button>
+          <div className="relative group">
+            <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+              <Download size={14} /> Export
+            </button>
+            <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button onClick={handleExportLogs} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg">
+                Daily Logs
+              </button>
+              <button onClick={handleExportSites} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg">
+                Sites
+              </button>
+            </div>
+          </div>
           <button
             onClick={() => setShowLogModal(true)}
             className="flex items-center gap-2 px-3 py-2 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600"
@@ -329,6 +363,31 @@ export default function FreeWifi() {
           <LogModal onClose={() => setShowLogModal(false)} onSaved={fetchSites} sites={sites} />
         )}
       </AnimatePresence>
+
+      {/* Import Modal */}
+      <AnimatePresence>
+        {showImportModal && (
+          <ImportModal
+            onClose={() => setShowImportModal(false)}
+            importType={importType}
+            onTypeChange={setImportType}
+            onImport={async (file: File) => {
+              setImporting(true);
+              try {
+                const endpoint = importType === 'logs' ? 'logs.bulk-import' : 'sites.import';
+                const res = await api.upload(endpoint, file);
+                toast.success(`Imported ${res.data?.imported ?? 0} records`);
+                setShowImportModal(false);
+                fetchSites();
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : 'Import failed');
+              } finally {
+                setImporting(false);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -531,6 +590,121 @@ function LogModal({ onClose, onSaved, sites }: { onClose: () => void; onSaved: (
             </button>
           </div>
         </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ImportModal({ onClose, onImport, importType, onTypeChange }: {
+  onClose: () => void;
+  onImport: (file: File) => Promise<void>;
+  importType: 'logs' | 'sites';
+  onTypeChange: (type: 'logs' | 'sites') => void;
+}) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+    await onImport(selectedFile);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Upload size={20} className="text-slate-600" />
+            Import CSV
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Import Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onTypeChange('logs')}
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                  importType === 'logs'
+                    ? 'border-fw-sky bg-sky-50 text-fw-sky'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Daily Logs
+              </button>
+              <button
+                type="button"
+                onClick={() => onTypeChange('sites')}
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                  importType === 'sites'
+                    ? 'border-fw-sky bg-sky-50 text-fw-sky'
+                    : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Sites
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CSV File</label>
+            <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-slate-300 transition-colors">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+                id="csv-upload"
+              />
+              <label htmlFor="csv-upload" className="cursor-pointer">
+                <Upload size={24} className="mx-auto text-slate-400 mb-2" />
+                <p className="text-sm text-slate-600">
+                  {selectedFile ? selectedFile.name : 'Click to upload or drag and drop'}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">CSV files only</p>
+              </label>
+            </div>
+          </div>
+          {importType === 'logs' && (
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500 font-medium mb-1">Expected CSV columns:</p>
+              <p className="text-[11px] text-slate-400">site_id, date, status, bandwidth, users, remarks</p>
+            </div>
+          )}
+          {importType === 'sites' && (
+            <div className="bg-slate-50 rounded-lg p-3">
+              <p className="text-xs text-slate-500 font-medium mb-1">Expected CSV columns:</p>
+              <p className="text-[11px] text-slate-400">project_id, site_code, location, site_name, barangay, municipality, province, island_group, lat, lng, type, ISP, bandwidth, status</p>
+            </div>
+          )}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={!selectedFile}
+              className="flex-1 px-4 py-2.5 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Upload size={14} /> Import
+            </button>
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   );

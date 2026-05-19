@@ -228,6 +228,62 @@ switch ($action) {
         ApiResponse::success($logs);
         break;
 
+    case 'logs.export':
+        if (!AuthMiddleware::hasPermission('logs.export')) {
+            ApiResponse::error('Forbidden', 403);
+            exit;
+        }
+
+        $where = ['1=1'];
+        $params = [];
+
+        if (!empty($_GET['site_id'])) {
+            $where[] = 'l.site_id = ?';
+            $params[] = $_GET['site_id'];
+        }
+        if (!empty($_GET['date_from'])) {
+            $where[] = 'l.log_date >= ?';
+            $params[] = $_GET['date_from'];
+        }
+        if (!empty($_GET['date_to'])) {
+            $where[] = 'l.log_date <= ?';
+            $params[] = $_GET['date_to'];
+        }
+        if (!empty($_GET['status'])) {
+            $where[] = 'l.status = ?';
+            $params[] = $_GET['status'];
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $logs = $db->fetchAll(
+            "SELECT l.*, s.site_code, s.location_name, s.province, s.municipality,
+                    p.code as project_code, p.name as project_name
+             FROM free_wifi_daily_logs l
+             JOIN sites s ON s.id = l.site_id
+             JOIN projects p ON p.id = s.project_id
+             WHERE {$whereClause}
+             ORDER BY l.log_date DESC, l.site_id",
+            $params
+        );
+
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="logs_export_' . date('Y-m-d') . '.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Site ID', 'Site Code', 'Site Name', 'Province', 'Municipality',
+                        'Project', 'Date', 'Status', 'Bandwidth Utilization %',
+                        'Total Unique Users', 'Remarks']);
+        foreach ($logs as $l) {
+            fputcsv($out, [
+                $l['site_id'], $l['site_code'], $l['location_name'],
+                $l['province'], $l['municipality'], $l['project_name'],
+                $l['log_date'], $l['status'], $l['bandwidth_utilization'],
+                $l['total_unique_users'], $l['remarks'] ?? '',
+            ]);
+        }
+        fclose($out);
+        exit;
+
     default:
         ApiResponse::error('Unknown logs action', 404);
 }

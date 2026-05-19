@@ -87,6 +87,7 @@ $routes = [
     'logs.bulk-import' => ['routes/logs.php', 'POST'],
     'logs.daily-summary' => ['routes/logs.php', 'GET'],
     'logs.site-logs' => ['routes/logs.php', 'GET'],
+    'logs.export' => ['routes/logs.php', 'GET'],
 
     // Dict Project Entries
     'entries.list' => ['routes/entries.php', 'GET'],
