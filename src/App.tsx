@@ -11,6 +11,7 @@ import DictProjects from './pages/DictProjects';
 import Reports from './pages/Reports';
 import SchemaSpec from './pages/SchemaSpec';
 import UsersPage from './pages/Users';
+import RolesPage from './pages/Roles';
 
 function PrivateRoutes() {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ function PrivateRoutes() {
         <Route path="/freewifi" element={<ProtectedRoute><FreeWifi /></ProtectedRoute>} />
         <Route path="/dict-projects" element={<ProtectedRoute><DictProjects /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+        <Route path="/roles" element={<ProtectedRoute><RolesPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
         <Route path="/schema" element={<ProtectedRoute><SchemaSpec /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

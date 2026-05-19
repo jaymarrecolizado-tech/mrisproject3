@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Wifi, FolderKanban, FileText,
-  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut
+  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/freewifi', label: 'Free WiFi', icon: Wifi },
   { path: '/dict-projects', label: 'DICT Projects', icon: FolderKanban },
   { path: '/users', label: 'Users', icon: Users },
+  { path: '/roles', label: 'Roles & Permissions', icon: Shield },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/schema', label: 'MySQL Spec', icon: Database },
 ];
