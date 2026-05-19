@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   FileText, Download, FileSpreadsheet,
-  FileType, CheckCircle2, Clock, Printer, Loader2
+  FileType, CheckCircle2, Clock, Printer, Loader2, Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { projects } from '../data/mockData';
@@ -22,58 +22,123 @@ interface ApiProject {
   code?: string;
 }
 
-const generatedReports = [
-  { id: 1, name: 'Free WiFi Daily Status — June 15, 2025', type: 'daily_status', project: 'Free WiFi', format: 'PDF', date: '2025-06-15', size: '245 KB' },
-  { id: 2, name: 'GovNet Monthly Accomplishment — May 2025', type: 'monthly_accomplishment', project: 'GovNet', format: 'XLSX', date: '2025-06-01', size: '1.2 MB' },
-  { id: 3, name: 'Regional Breakdown — Q2 2025', type: 'regional_breakdown', project: 'All Projects', format: 'PDF', date: '2025-06-10', size: '890 KB' },
-  { id: 4, name: 'eLGU Project Completion — June 2025', type: 'project_completion', project: 'eLGU', format: 'XLSX', date: '2025-06-12', size: '560 KB' },
-  { id: 5, name: 'Free WiFi Weekly Summary — Week 24', type: 'weekly_summary', project: 'Free WiFi', format: 'PDF', date: '2025-06-14', size: '320 KB' },
-];
+interface GeneratedReport {
+  id: number;
+  report_type: string;
+  title: string;
+  format: string;
+  date_from: string;
+  date_to: string;
+  generated_by_name: string;
+  created_at: string;
+}
 
 export default function Reports() {
   const [apiProjects, setApiProjects] = useState<ApiProject[]>([]);
+  const [recentReports, setRecentReports] = useState<GeneratedReport[]>([]);
   const [selectedType, setSelectedType] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [format, setFormat] = useState('PDF');
+  const [format, setFormat] = useState('CSV');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [generateError, setGenerateError] = useState('');
 
   useEffect(() => {
     api.get<ApiProject[]>('projects.list')
       .then((res) => setApiProjects(res.data))
       .catch(() => {});
+    loadRecentReports();
   }, []);
+
+  const loadRecentReports = () => {
+    api.getPaginated<GeneratedReport>('reports.list', { page: 1, per_page: 10 })
+      .then((res) => setRecentReports(res.data))
+      .catch(() => {});
+  };
 
   const allProjects = apiProjects.length > 0 ? apiProjects : projects.map(p => ({ id: p.id, name: p.name }));
 
   const handleGenerate = async () => {
+    if (!selectedType) return;
     setIsGenerating(true);
+    setGenerated(false);
+    setGenerateError('');
     try {
-      await api.post('reports.generate', {
-        type: selectedType,
-        project_id: selectedProject,
-        date_from: dateFrom,
-        date_to: dateTo,
-        format,
-      });
-      setGenerated(true);
-      setTimeout(() => setGenerated(false), 3000);
-    } catch {
-      // Fallback: simulate generation
-      setTimeout(() => {
+      if (format === 'CSV') {
+        // CSV returns file directly
+        const filename = `${selectedType}_${new Date().toISOString().split('T')[0]}.csv`;
+        await api.download('reports.generate', filename, {
+          format: 'CSV',
+          report_type: selectedType,
+          project_id: selectedProject || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        });
         setGenerated(true);
-        setTimeout(() => setGenerated(false), 3000);
-      }, 1500);
+        loadRecentReports();
+      } else {
+        // PDF/XLSX returns JSON data for display
+        await api.post('reports.generate', {
+          report_type: selectedType,
+          project_id: selectedProject,
+          date_from: dateFrom,
+          date_to: dateTo,
+          format,
+        });
+        setGenerated(true);
+        loadRecentReports();
+      }
+      setTimeout(() => setGenerated(false), 3000);
+    } catch (err: unknown) {
+      setGenerateError(err instanceof Error ? err.message : 'Failed to generate report');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleDownloadReport = async (report: GeneratedReport) => {
+    try {
+      const filename = `${report.report_type}_${report.id}.${report.format.toLowerCase()}`;
+      await api.download('reports.download', filename, { id: report.id });
+    } catch {
+      // Fallback: show info
+    }
+  };
+
+  const handleDeleteReport = async (reportId: number) => {
+    try {
+      await api.delete('reports.delete', reportId);
+      loadRecentReports();
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  const handleExportAllSites = async () => {
+    try {
+      await api.download('sites.export', 'all_sites_export.csv');
+    } catch {
+      // Fallback
+    }
+  };
+
+  const handlePrintDashboard = () => {
+    window.print();
+  };
+
   const applicableProjects = selectedType
     ? reportTypes.find(r => r.id === selectedType)?.applicable || []
     : [];
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -129,14 +194,14 @@ export default function Reports() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Format</label>
                 <div className="flex gap-2">
-                  {['PDF', 'XLSX', 'CSV'].map(f => (
+                  {['CSV', 'PDF', 'XLSX'].map(f => (
                     <button
                       key={f}
                       onClick={() => setFormat(f)}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium transition-colors
                         ${format === f ? 'border-dict-blue bg-blue-50 text-dict-blue' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
                     >
-                      {f === 'PDF' ? <FileType size={14} /> : <FileSpreadsheet size={14} />}
+                      {f === 'CSV' ? <FileSpreadsheet size={14} /> : <FileType size={14} />}
                       {f}
                     </button>
                   ))}
@@ -186,7 +251,7 @@ export default function Reports() {
               ) : (
                 <>
                   <Download size={16} />
-                  Generate & Download
+                  {format === 'CSV' ? 'Generate & Download CSV' : `Generate ${format} Report`}
                 </>
               )}
             </button>
@@ -194,7 +259,13 @@ export default function Reports() {
             {generated && (
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm">
                 <CheckCircle2 size={16} />
-                Report generated successfully! Check your downloads.
+                Report generated successfully! {format === 'CSV' && 'Check your downloads.'}
+              </div>
+            )}
+
+            {generateError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {generateError}
               </div>
             )}
           </div>
@@ -207,36 +278,59 @@ export default function Reports() {
             Recent Reports
           </h2>
           <div className="space-y-3">
-            {generatedReports.map(report => (
-              <div key={report.id} className="p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{report.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{report.project} • {report.date}</p>
+            {recentReports.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No reports generated yet</p>
+            ) : (
+              recentReports.map(report => (
+                <div key={report.id} className="p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{report.title}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{report.generated_by_name} • {formatDate(report.created_at)}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      report.format === 'PDF' ? 'bg-red-100 text-red-700' :
+                      report.format === 'XLSX' ? 'bg-emerald-100 text-emerald-700' :
+                      'bg-blue-100 text-blue-700'
+                    }`}>
+                      {report.format}
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    report.format === 'PDF' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {report.format}
-                  </span>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] text-slate-400">{report.report_type.replace(/_/g, ' ')}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDownloadReport(report)}
+                        className="flex items-center gap-1 text-xs text-dict-blue hover:text-blue-800"
+                      >
+                        <Download size={12} /> Download
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="flex items-center gap-1 text-xs text-red-400 hover:text-red-600"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] text-slate-400">{report.size}</span>
-                  <button className="flex items-center gap-1 text-xs text-dict-blue hover:text-blue-800">
-                    <Download size={12} /> Download
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100">
             <h3 className="text-sm font-medium text-slate-700 mb-3">Quick Actions</h3>
             <div className="space-y-2">
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+              <button
+                onClick={handlePrintDashboard}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+              >
                 <Printer size={14} /> Print Current Dashboard
               </button>
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+              <button
+                onClick={handleExportAllSites}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+              >
                 <FileSpreadsheet size={14} /> Export All Sites to CSV
               </button>
             </div>

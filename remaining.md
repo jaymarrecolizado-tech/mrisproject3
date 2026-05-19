@@ -1,6 +1,6 @@
 # DICT MRIS — Remaining Tasks
 
-> Last updated: 2026-05-19
+> Last updated: 2026-05-19 (Reports page connected)
 
 ---
 
@@ -26,13 +26,12 @@
 - Added `/audit` route and sidebar navigation.
 - API route `audit.list` already existed with full filtering support.
 
-### 5. Reports Page — Real Generation & Download
-- **Issue**: Report list is hardcoded mock data (line 25-31 of `Reports.tsx`). `reports.generate` is a stub.
-- **Scope**:
-  - Implement `reports.generate` in `api/routes/reports.php` to produce PDF/XLSX output.
-  - Implement `reports.download` to serve generated files.
-  - Replace mock `generatedReports` array with API results from `reports.list`.
-- **Files**: `src/pages/Reports.tsx`, `api/routes/reports.php`
+### 5. ~~Reports Page — Real Generation & Download~~ ✅ DONE
+- Connected `Reports.tsx` to real `reports.list` API for recent reports sidebar.
+- Implemented `reports.generate` with CSV streaming output (direct download) and JSON data for PDF/XLSX.
+- Added report deletion (`reports.delete`) and download (`reports.download`) handlers.
+- Added error display, quick actions (print dashboard, export all sites), and date range filtering.
+- Removed mock `generatedReports` array.
 
 ### 6. DictProjects — Real Project Detail & Milestones
 - **Issue**: Entries tab connected to API, but project detail modals, milestone management, and progress bars still use mock data.
