@@ -28,16 +28,15 @@ function getToken(): string | null {
 }
 
 function buildUrl(action: string, params?: Record<string, string | number | null>): string {
-  const url = new URL(`${API_BASE}/index.php`);
-  url.searchParams.set('action', action);
+  const searchParams = new URLSearchParams({ action });
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
-        url.searchParams.set(key, String(value));
+        searchParams.set(key, String(value));
       }
     });
   }
-  return url.toString();
+  return `${API_BASE}/index.php?${searchParams.toString()}`;
 }
 
 async function request<T>(action: string, method: string = 'GET', body?: unknown, params?: Record<string, string | number | null>): Promise<T> {
@@ -67,7 +66,8 @@ async function request<T>(action: string, method: string = 'GET', body?: unknown
     if (response.status === 401) {
       localStorage.removeItem('mris_token');
       localStorage.removeItem('mris_user');
-      window.location.href = '/login';
+      const base = document.querySelector('base')?.getAttribute('href') || '/';
+      window.location.href = `${base}login`;
     }
     throw new Error(data.message || 'Request failed');
   }

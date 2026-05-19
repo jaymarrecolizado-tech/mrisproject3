@@ -34,18 +34,6 @@ interface DailySummary {
   avgBandwidth: number;
 }
 
-interface Project {
-  id: number;
-  code: string;
-  name: string;
-  full_name: string;
-  color: string;
-  icon: string;
-  description: string;
-  type: string;
-  is_active: number;
-}
-
 interface ProjectStats {
   id: number;
   code: string;
@@ -76,12 +64,21 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       api.get<DashboardStats>('dashboard.stats'),
-      api.get<DailySummary[]>('dashboard.daily'),
+      api.get<any[]>('dashboard.daily'),
       api.get<ProjectStats[]>('projects.stats'),
       api.get<RegionStat[]>('dashboard.regional'),
     ]).then(([statsRes, dailyRes, projRes, regionRes]) => {
       setStats(statsRes.data);
-      setDailyData(dailyRes.data);
+      // Map API snake_case format to the frontend's camelCase format
+      const normalizedDailyData = dailyRes.data.map(d => ({
+        date: d.date,
+        totalSites: d.total_sites ?? d.totalSites ?? 0,
+        upCount: Number(d.up_count ?? d.upCount ?? 0),
+        downCount: Number(d.down_count ?? d.downCount ?? 0),
+        totalUsers: Number(d.total_users ?? d.totalUsers ?? 0),
+        avgBandwidth: Number(d.avg_bandwidth ?? d.avgBandwidth ?? 0)
+      }));
+      setDailyData(normalizedDailyData);
       setProjectStats(projRes.data);
       setRegionData(regionRes.data);
       setIsLoading(false);
@@ -95,32 +92,64 @@ export default function Dashboard() {
   }, []);
 
   const displayData = useMemo(() => {
-    if (stats) return stats;
-    const totalSites = dailySummaries[dailySummaries.length - 1].totalSites;
-    const activeSites = dailySummaries[dailySummaries.length - 1].upCount;
-    const downSites = dailySummaries[dailySummaries.length - 1].downCount;
-    const today = dailySummaries[dailySummaries.length - 1];
-    const yesterday = dailySummaries[dailySummaries.length - 2];
+    const mockToday = dailySummaries[dailySummaries.length - 1];
+    const mockYesterday = dailySummaries[dailySummaries.length - 2];
+    const todayD = dailyData.length > 0 ? dailyData[dailyData.length - 1] : mockToday;
+    const yesterdayD = dailyData.length > 1 ? dailyData[dailyData.length - 2] : mockYesterday;
+
+    const avgCompletion = projectStats.length > 0
+      ? projectStats.reduce((s, p) => s + p.completion_rate, 0) / projectStats.length
+      : 80;
+
+    if (stats && 'fw_total_sites' in (stats as any)) {
+      const apiStats = stats as any;
+      const total_sites = apiStats.fw_total_sites + (apiStats.dict_total_sites || 0);
+      return {
+        total_sites,
+        active_sites: apiStats.fw_up_sites || 0,
+        down_sites: apiStats.fw_down_sites || 0,
+        avg_completion: avgCompletion,
+        total_users_today: todayD.totalUsers,
+        avg_bandwidth: todayD.avgBandwidth,
+        uptime_rate: total_sites > 0 ? ((apiStats.fw_up_sites || 0) / total_sites) * 100 : 0,
+        user_change: todayD.totalUsers - yesterdayD.totalUsers,
+        bandwidth_change: todayD.avgBandwidth - yesterdayD.avgBandwidth,
+        uptime_change: 0,
+      };
+    }
+
+    if (stats) {
+      return {
+        total_sites: stats.total_sites ?? 0,
+        active_sites: stats.active_sites ?? 0,
+        down_sites: stats.down_sites ?? 0,
+        avg_completion: avgCompletion,
+        total_users_today: stats.total_users_today ?? todayD.totalUsers,
+        avg_bandwidth: stats.avg_bandwidth ?? todayD.avgBandwidth,
+        uptime_rate: stats.uptime_rate ?? (todayD.totalSites > 0 ? (todayD.upCount / todayD.totalSites) * 100 : 0),
+        user_change: stats.user_change ?? (todayD.totalUsers - yesterdayD.totalUsers),
+        bandwidth_change: stats.bandwidth_change ?? (todayD.avgBandwidth - yesterdayD.avgBandwidth),
+        uptime_change: stats.uptime_change ?? (todayD.totalSites > 0 ? ((todayD.upCount / todayD.totalSites) - (yesterdayD.upCount / yesterdayD.totalSites)) * 100 : 0),
+      };
+    }
+
     return {
-      total_sites: totalSites,
-      active_sites: activeSites,
-      down_sites: downSites,
-      avg_completion: projectStats.length > 0
-        ? projectStats.reduce((s, p) => s + p.completion_rate, 0) / projectStats.length
-        : 80,
-      total_users_today: today.totalUsers,
-      avg_bandwidth: today.avgBandwidth,
-      uptime_rate: (today.upCount / today.totalSites) * 100,
-      user_change: today.totalUsers - yesterday.totalUsers,
-      bandwidth_change: today.avgBandwidth - yesterday.avgBandwidth,
-      uptime_change: ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100,
+      total_sites: mockToday.totalSites,
+      active_sites: mockToday.upCount,
+      down_sites: mockToday.downCount,
+      avg_completion: avgCompletion,
+      total_users_today: mockToday.totalUsers,
+      avg_bandwidth: mockToday.avgBandwidth,
+      uptime_rate: mockToday.totalSites > 0 ? (mockToday.upCount / mockToday.totalSites) * 100 : 0,
+      user_change: mockToday.totalUsers - mockYesterday.totalUsers,
+      bandwidth_change: mockToday.avgBandwidth - mockYesterday.avgBandwidth,
+      uptime_change: mockToday.totalSites > 0 ? ((mockToday.upCount / mockToday.totalSites) - (mockYesterday.upCount / mockYesterday.totalSites)) * 100 : 0,
     };
-  }, [stats, projectStats]);
+  }, [stats, projectStats, dailyData]);
 
   const today = dailyData.length > 0 ? dailyData[dailyData.length - 1] : dailySummaries[dailySummaries.length - 1];
   const yesterday = dailyData.length > 1 ? dailyData[dailyData.length - 2] : dailySummaries[dailySummaries.length - 2];
   const upChange = today.upCount - yesterday.upCount;
-  const userChange = stats ? stats.user_change : today.totalUsers - yesterday.totalUsers;
 
   const statusData = [
     { name: 'UP', value: today.upCount, color: '#22c55e' },
@@ -337,21 +366,21 @@ export default function Dashboard() {
           icon={<Users size={18} />}
           label="Total Users Today"
           value={today.totalUsers.toLocaleString()}
-          change={userChange}
+          change={displayData.user_change ?? (today.totalUsers - yesterday.totalUsers)}
           suffix=" from yesterday"
         />
         <QuickStat
           icon={<Clock size={18} />}
           label="Avg Bandwidth"
           value={`${today.avgBandwidth} Mbps`}
-          change={stats ? stats.bandwidth_change : today.avgBandwidth - yesterday.avgBandwidth}
+          change={displayData.bandwidth_change ?? (today.avgBandwidth - yesterday.avgBandwidth)}
           suffix=" Mbps"
         />
         <QuickStat
           icon={<TrendingUp size={18} />}
           label="Uptime Rate"
           value={`${displayData.uptime_rate.toFixed(1)}%`}
-          change={stats ? stats.uptime_change : ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100}
+          change={displayData.uptime_change ?? ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100}
           suffix="%"
           isPercent
         />

@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
@@ -22,8 +23,7 @@ export default function ProtectedRoute({ children, requiredPermission }: Protect
   }
 
   if (!user) {
-    window.location.href = '/login';
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {

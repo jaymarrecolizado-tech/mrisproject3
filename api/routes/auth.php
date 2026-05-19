@@ -76,10 +76,7 @@ switch ($action) {
         );
         $projects = [];
         foreach ($projectAccess as $pa) {
-            $projects[] = [
-                'project_id' => (int) $pa['project_id'],
-                'access_level' => $pa['access_level'],
-            ];
+            $projects[$pa['project_id']] = $pa['access_level'];
         }
 
         unset($user['password_hash']);

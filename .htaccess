@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /Projects/projecttracking3/
+
+# Don't rewrite API requests
+RewriteCond %{REQUEST_URI} !^/api/
+# Don't rewrite existing files/directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+# Serve index.html for all other routes (SPA routing)
+RewriteRule . index.html [L]
