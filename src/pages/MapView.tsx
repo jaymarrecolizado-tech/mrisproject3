@@ -1,13 +1,49 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X } from 'lucide-react';
+import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { sites, projects } from '../data/mockData';
+import { projects as mockProjects, sites as mockSites } from '../data/mockData';
+import { api } from '../services/api';
 import type { Site } from '../types';
+
+interface ApiSite {
+  id: number;
+  site_code: string;
+  location_name: string;
+  site_name: string;
+  province: string;
+  municipality: string;
+  barangay: string;
+  district: string;
+  island_group: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  isp_provider: string;
+  bw_download: number;
+  site_type: string;
+  project_id: number;
+  project_code: string;
+  project_name: string;
+  project_color: string;
+  nationwide_id?: string;
+  last_mile_tech?: string;
+  last_updated?: string;
+}
+
+interface ApiProject {
+  id: number;
+  code: string;
+  name: string;
+  full_name: string;
+  color: string;
+  type: string;
+  description: string;
+}
 
 // Leaflet default icon fix for bundlers
 const defaultIcon = L.icon({
@@ -30,9 +66,45 @@ const projectIcons: Record<string, React.ReactNode> = {
   gecs: <Radio size={14} />,
 };
 
-function createCustomIcon(projectId: string, status: string) {
-  const project = projects.find(p => p.id === projectId);
-  const color = project?.color || '#3b82f6';
+function apiSiteToSite(api: ApiSite): Site {
+  return {
+    id: String(api.id),
+    siteCode: api.site_code,
+    siteName: api.site_name || api.location_name,
+    locationName: api.location_name,
+    province: api.province,
+    islandGroup: api.island_group,
+    district: api.district,
+    municipality: api.municipality,
+    latitude: api.latitude,
+    longitude: api.longitude,
+    status: api.status,
+    ispProvider: api.isp_provider,
+    bwDownload: api.bw_download,
+    siteType: api.site_type,
+    projectId: String(api.project_id),
+    nationwideId: api.nationwide_id || '',
+    lastMileTech: api.last_mile_tech || '',
+    lastUpdated: api.last_updated || '',
+  };
+}
+
+function apiProjectToMock(api: ApiProject) {
+  return {
+    id: String(api.id),
+    code: api.code,
+    name: api.name,
+    fullName: api.full_name,
+    color: api.color,
+    type: api.type,
+    description: api.description,
+    completionRate: 0,
+    totalSites: 0,
+  };
+}
+
+function createCustomIcon(projectId: string, status: string, projectColor: string) {
+  const color = projectColor || '#3b82f6';
 
   const statusColors: Record<string, string> = {
     UP: '#22c55e', DOWN: '#ef4444', PARTIAL: '#f59e0b',
@@ -64,50 +136,51 @@ function createCustomIcon(projectId: string, status: string) {
 }
 
 // Create cluster icon with project color
-function createClusterIcon(cluster: any) {
-  const childCount = cluster.getChildCount();
-  const childMarkers = cluster.getAllChildMarkers();
+function createClusterIconFactory(allProjects: typeof mockProjects) {
+  return function createClusterIcon(cluster: any) {
+    const childCount = cluster.getChildCount();
+    const childMarkers = cluster.getAllChildMarkers();
 
-  // Get dominant project color from markers in this cluster
-  const projectCounts: Record<string, number> = {};
-  childMarkers.forEach((m: any) => {
-    const pid = m.options.projectId;
-    if (pid) projectCounts[pid] = (projectCounts[pid] || 0) + 1;
-  });
+    const projectCounts: Record<string, number> = {};
+    childMarkers.forEach((m: any) => {
+      const pid = m.options.projectId;
+      if (pid) projectCounts[pid] = (projectCounts[pid] || 0) + 1;
+    });
 
-  let dominantColor = '#003366';
-  let maxCount = 0;
-  Object.entries(projectCounts).forEach(([pid, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      const proj = projects.find(p => p.id === pid);
-      if (proj) dominantColor = proj.color;
-    }
-  });
+    let dominantColor = '#003366';
+    let maxCount = 0;
+    Object.entries(projectCounts).forEach(([pid, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        const proj = allProjects.find(p => p.id === pid);
+        if (proj) dominantColor = proj.color;
+      }
+    });
 
-  const size = childCount < 10 ? 36 : childCount < 100 ? 44 : 52;
+    const size = childCount < 10 ? 36 : childCount < 100 ? 44 : 52;
 
-  return L.divIcon({
-    className: '',
-    html: `
-      <div style="
-        width:${size}px;height:${size}px;
-        border-radius:50%;
-        background:${dominantColor};
-        color:white;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-weight:bold;
-        font-size:${childCount < 100 ? '13px' : '11px'};
-        border:3px solid white;
-        box-shadow:0 2px 8px rgba(0,0,0,0.3);
-        font-family:sans-serif;
-      ">${childCount}</div>
-    `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
+    return L.divIcon({
+      className: '',
+      html: `
+        <div style="
+          width:${size}px;height:${size}px;
+          border-radius:50%;
+          background:${dominantColor};
+          color:white;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:bold;
+          font-size:${childCount < 100 ? '13px' : '11px'};
+          border:3px solid white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          font-family:sans-serif;
+        ">${childCount}</div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  };
 }
 
 function MapBounds({ sites }: { sites: Site[] }) {
@@ -127,10 +200,39 @@ function MapBounds({ sites }: { sites: Site[] }) {
 }
 
 export default function MapView() {
-  const [selectedProjects, setSelectedProjects] = useState<string[]>(projects.map(p => p.id));
+  const [apiSites, setApiSites] = useState<Site[]>([]);
+  const [apiProjects, setApiProjects] = useState<typeof mockProjects>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showFilters, setShowFilters] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<ApiSite[]>('sites.map-data'),
+      api.get<ApiProject[]>('projects.list'),
+    ]).then(([siteRes, projRes]) => {
+      const sites = siteRes.data.map(apiSiteToSite);
+      const projs = projRes.data.map(apiProjectToMock);
+      setApiSites(sites);
+      setApiProjects(projs);
+      setSelectedProjects(projs.map(p => p.id));
+      setIsLoading(false);
+    }).catch(() => {
+      setApiSites(mockSites);
+      setApiProjects(mockProjects.filter(p => p.type === 'milestone').map(p => ({
+        id: p.id, code: p.name, name: p.name, fullName: p.fullName,
+        color: p.color, type: p.type, description: p.description,
+        completionRate: p.completionRate, totalSites: p.totalSites,
+      })));
+      setSelectedProjects(mockProjects.filter(p => p.type === 'milestone').map(p => p.id));
+      setIsLoading(false);
+    });
+  }, []);
+
+  const projects = apiProjects.length > 0 ? apiProjects : mockProjects;
+  const sites = apiSites.length > 0 ? apiSites : mockSites;
 
   const filteredSites = useMemo(() => {
     return sites.filter(s => {
@@ -141,7 +243,7 @@ export default function MapView() {
       if (statusFilter === 'pending') return ['PENDING', 'PLANNED'].includes(s.status);
       return s.status === statusFilter;
     });
-  }, [selectedProjects, statusFilter]);
+  }, [selectedProjects, statusFilter, sites]);
 
   const toggleProject = (id: string) => {
     setSelectedProjects(prev =>
@@ -151,6 +253,19 @@ export default function MapView() {
 
   const selectAll = () => setSelectedProjects(projects.map(p => p.id));
   const clearAll = () => setSelectedProjects([]);
+
+  if (isLoading) {
+    return (
+      <div className="h-[calc(100vh-7rem)] -m-4 lg:-m-6 flex items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-dict-blue mx-auto mb-4" />
+          <p className="text-slate-400">Loading map data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const clusterIconFn = createClusterIconFactory(projects);
 
   return (
     <div className="h-[calc(100vh-7rem)] -m-4 lg:-m-6 relative">
@@ -191,7 +306,7 @@ export default function MapView() {
                       className="rounded border-slate-300"
                     />
                     <span className="w-5 h-5 rounded flex items-center justify-center text-white" style={{ backgroundColor: p.color }}>
-                      {projectIcons[p.id]}
+                      {projectIcons[p.id] || projectIcons.fw}
                     </span>
                     <span className="text-sm text-slate-700">{p.name}</span>
                     <span className="ml-auto text-[10px] text-slate-400">
@@ -315,39 +430,43 @@ export default function MapView() {
           spiderfyOnMaxZoom
           showCoverageOnHover={false}
           maxClusterRadius={60}
-          iconCreateFunction={createClusterIcon}
+          iconCreateFunction={clusterIconFn}
         >
-          {filteredSites.map(site => (
-            <Marker
-              key={site.id}
-              position={[site.latitude, site.longitude]}
-              icon={createCustomIcon(site.projectId, site.status)}
-              eventHandlers={{
-                click: () => setSelectedSite(site),
-              }}
-              // @ts-ignore — custom property for cluster icon coloring
-              projectId={site.projectId}
-            >
-              <Popup>
-                <div className="min-w-[200px]">
-                  <p className="font-semibold text-sm">{site.siteName}</p>
-                  <p className="text-xs text-slate-500">{site.locationName}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: projects.find(p => p.id === site.projectId)?.color }}
-                    />
-                    <span className="text-xs">{projects.find(p => p.id === site.projectId)?.name}</span>
-                    <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded text-white ${
-                      site.status === 'UP' ? 'bg-emerald-500' : site.status === 'DOWN' ? 'bg-red-500' : 'bg-amber-500'
-                    }`}>
-                      {site.status}
-                    </span>
+          {filteredSites.map(site => {
+            const project = projects.find(p => p.id === site.projectId);
+            return (
+              <Marker
+                key={site.id}
+                position={[site.latitude, site.longitude]}
+                icon={createCustomIcon(site.projectId, site.status, project?.color || '#3b82f6')}
+                eventHandlers={{
+                  click: () => setSelectedSite(site),
+                }}
+                // @ts-ignore — custom property for cluster icon coloring
+                projectId={site.projectId}
+              >
+                <Popup>
+                  <div className="min-w-[200px]">
+                    <p className="font-semibold text-sm">{site.siteName}</p>
+                    <p className="text-xs text-slate-500">{site.locationName}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: project?.color }}
+                      />
+                      <span className="text-xs">{project?.name}</span>
+                      <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded text-white ${
+                        site.status === 'UP' || site.status === 'COMPLETED' ? 'bg-emerald-500' :
+                        site.status === 'DOWN' ? 'bg-red-500' : 'bg-amber-500'
+                      }`}>
+                        {site.status}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+                </Popup>
+              </Marker>
+            );
+          })}
         </MarkerClusterGroup>
       </MapContainer>
     </div>
