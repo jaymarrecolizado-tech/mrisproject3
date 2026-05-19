@@ -106,6 +106,7 @@ $routes = [
     // Dashboard
     'dashboard.stats' => ['routes/dashboard.php', 'GET'],
     'dashboard.trends' => ['routes/dashboard.php', 'GET'],
+    'dashboard.daily' => ['routes/dashboard.php', 'GET'],
     'dashboard.regional' => ['routes/dashboard.php', 'GET'],
 
     // Reports

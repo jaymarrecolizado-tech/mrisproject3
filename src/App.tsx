@@ -12,6 +12,7 @@ import Reports from './pages/Reports';
 import SchemaSpec from './pages/SchemaSpec';
 import UsersPage from './pages/Users';
 import RolesPage from './pages/Roles';
+import AuditTrail from './pages/AuditTrail';
 
 function PrivateRoutes() {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ function PrivateRoutes() {
         <Route path="/dict-projects" element={<ProtectedRoute><DictProjects /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
         <Route path="/roles" element={<ProtectedRoute><RolesPage /></ProtectedRoute>} />
+        <Route path="/audit" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
         <Route path="/schema" element={<ProtectedRoute><SchemaSpec /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

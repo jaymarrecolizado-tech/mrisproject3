@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Wifi, FolderKanban, FileText,
-  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield
+  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield, ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -14,6 +14,7 @@ const navItems = [
   { path: '/dict-projects', label: 'DICT Projects', icon: FolderKanban },
   { path: '/users', label: 'Users', icon: Users },
   { path: '/roles', label: 'Roles & Permissions', icon: Shield },
+  { path: '/audit', label: 'Audit Trail', icon: ClipboardList },
   { path: '/reports', label: 'Reports', icon: FileText },
   { path: '/schema', label: 'MySQL Spec', icon: Database },
 ];

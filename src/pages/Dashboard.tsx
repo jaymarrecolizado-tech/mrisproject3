@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { api } from '../services/api';
-import { projects as mockProjects, dailySummaries, regionStats } from '../data/mockData';
+import { dailySummaries, regionStats } from '../data/mockData';
 
 interface DashboardStats {
   total_sites: number;
@@ -34,39 +34,80 @@ interface DailySummary {
   avgBandwidth: number;
 }
 
+interface Project {
+  id: number;
+  code: string;
+  name: string;
+  full_name: string;
+  color: string;
+  icon: string;
+  description: string;
+  type: string;
+  is_active: number;
+}
+
+interface ProjectStats {
+  id: number;
+  code: string;
+  name: string;
+  color: string;
+  type: string;
+  total_sites: number;
+  up_sites: number;
+  down_sites: number;
+  completion_rate: number;
+}
+
+interface RegionStat {
+  island_group: string;
+  total_sites: number;
+  up_sites: number;
+  down_sites: number;
+  avg_bandwidth: number;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
+  const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
+  const [regionData, setRegionData] = useState<RegionStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get<DashboardStats>('dashboard.stats'),
       api.get<DailySummary[]>('dashboard.daily'),
-    ]).then(([statsRes, dailyRes]) => {
+      api.get<ProjectStats[]>('projects.stats'),
+      api.get<RegionStat[]>('dashboard.regional'),
+    ]).then(([statsRes, dailyRes, projRes, regionRes]) => {
       setStats(statsRes.data);
       setDailyData(dailyRes.data);
+      setProjectStats(projRes.data);
+      setRegionData(regionRes.data);
       setIsLoading(false);
     }).catch(() => {
       setStats(null);
       setDailyData(dailySummaries);
+      setProjectStats([]);
+      setRegionData([]);
       setIsLoading(false);
     });
   }, []);
 
   const displayData = useMemo(() => {
     if (stats) return stats;
-    const totalSites = mockProjects.reduce((s, p) => s + p.totalSites, 0);
-    const activeSites = mockProjects.reduce((s, p) => s + p.activeSites, 0);
-    const downSites = mockProjects.reduce((s, p) => s + p.downSites, 0);
-    const avgCompletion = mockProjects.reduce((s, p) => s + p.completionRate, 0) / mockProjects.length;
+    const totalSites = dailySummaries[dailySummaries.length - 1].totalSites;
+    const activeSites = dailySummaries[dailySummaries.length - 1].upCount;
+    const downSites = dailySummaries[dailySummaries.length - 1].downCount;
     const today = dailySummaries[dailySummaries.length - 1];
     const yesterday = dailySummaries[dailySummaries.length - 2];
     return {
       total_sites: totalSites,
       active_sites: activeSites,
       down_sites: downSites,
-      avg_completion: avgCompletion,
+      avg_completion: projectStats.length > 0
+        ? projectStats.reduce((s, p) => s + p.completion_rate, 0) / projectStats.length
+        : 80,
       total_users_today: today.totalUsers,
       avg_bandwidth: today.avgBandwidth,
       uptime_rate: (today.upCount / today.totalSites) * 100,
@@ -74,7 +115,7 @@ export default function Dashboard() {
       bandwidth_change: today.avgBandwidth - yesterday.avgBandwidth,
       uptime_change: ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100,
     };
-  }, [stats]);
+  }, [stats, projectStats]);
 
   const today = dailyData.length > 0 ? dailyData[dailyData.length - 1] : dailySummaries[dailySummaries.length - 1];
   const yesterday = dailyData.length > 1 ? dailyData[dailyData.length - 2] : dailySummaries[dailySummaries.length - 2];
@@ -86,11 +127,9 @@ export default function Dashboard() {
     { name: 'DOWN', value: today.downCount, color: '#ef4444' },
   ];
 
-  const regionChartData = regionStats.map(r => ({
-    name: r.islandGroup,
-    UP: r.upSites,
-    DOWN: r.downSites,
-  }));
+  const regionChartData = regionData.length > 0
+    ? regionData.map(r => ({ name: r.island_group, UP: r.up_sites, DOWN: r.down_sites }))
+    : regionStats.map(r => ({ name: r.islandGroup, UP: r.upSites, DOWN: r.downSites }));
 
   if (isLoading) {
     return (
@@ -267,26 +306,28 @@ export default function Dashboard() {
         >
           <h3 className="font-semibold text-slate-800 mb-4">Project Completion Rates</h3>
           <div className="space-y-4">
-            {mockProjects.filter(p => p.id !== 'fw').map((p) => (
+            {projectStats.filter(p => p.type === 'milestone').length > 0 ? projectStats.filter(p => p.type === 'milestone').map((p) => (
               <div key={p.id}>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
                     <span className="font-medium text-slate-700">{p.name}</span>
                   </span>
-                  <span className="text-slate-500">{p.completionRate}%</span>
+                  <span className="text-slate-500">{p.completion_rate}%</span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${p.completionRate}%`, backgroundColor: p.color }}
+                    style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }}
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  {p.activeSites} of {p.totalSites} sites completed
+                  {p.up_sites} of {p.total_sites} sites completed
                 </p>
               </div>
-            ))}
+            )) : (
+              <p className="text-sm text-slate-400 text-center py-8">No project data available</p>
+            )}
           </div>
         </motion.div>
       </div>

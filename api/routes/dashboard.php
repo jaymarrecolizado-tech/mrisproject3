@@ -16,6 +16,7 @@ switch ($action) {
         break;
 
     case 'dashboard.trends':
+    case 'dashboard.daily':
         $days = (int)($_GET['days'] ?? 30);
         $trends = $db->fetchAll(
             'SELECT log_date as date, total_sites, up_count, down_count, partial_count, total_users, avg_bandwidth
