@@ -2,12 +2,12 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   FolderKanban, Search, ChevronLeft, ChevronRight, Plus,
   CheckCircle2, Clock, Circle,
-  Building2, Calendar, ArrowUpDown, BarChart3, Loader2, FileText
+  Building2, Calendar, ArrowUpDown, BarChart3, Loader2, FileText, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../services/api';
-import { projects, generateMilestones } from '../data/mockData';
+import { projects } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
 import type { Site, DictProjectEntry } from '../types';
 
@@ -372,33 +372,96 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function MilestonesPanel({ projectId }: { projectId: string }) {
-  const milestones = useMemo(() => generateMilestones(projectId), [projectId]);
+  const [milestones, setMilestones] = useState<Array<{ id: number; title: string; target_date: string; actual_date: string | null; status: string; description: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingMs, setEditingMs] = useState<typeof milestones[0] | null>(null);
+  const toast = useToast();
+
+  const loadMilestones = useCallback(() => {
+    setLoading(true);
+    api.get<typeof milestones>('milestones.list', { project_id: projectId })
+      .then(res => { setMilestones(res.data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [projectId]);
+
+  useEffect(() => { loadMilestones(); }, [loadMilestones]);
+
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete('milestones.delete', id);
+      toast.success('Milestone deleted');
+      loadMilestones();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete');
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="font-semibold text-slate-800 mb-4">Milestones</h3>
-      <div className="space-y-4">
-        {milestones.map((ms, idx) => (
-          <div key={ms.id} className="relative pl-6">
-            {idx < milestones.length - 1 && (
-              <div className="absolute left-[9px] top-5 bottom-[-16px] w-0.5 bg-slate-200" />
-            )}
-            <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-              ms.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500' :
-              ms.status === 'IN_PROGRESS' ? 'bg-white border-blue-500' :
-              'bg-white border-slate-300'
-            }`}>
-              {ms.status === 'COMPLETED' && <CheckCircle2 size={10} className="text-white" />}
-              {ms.status === 'IN_PROGRESS' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-700">{ms.title}</p>
-              <p className="text-[10px] text-slate-400">Target: {ms.targetDate}</p>
-              {ms.actualDate && <p className="text-[10px] text-emerald-600">Completed: {ms.actualDate}</p>}
-            </div>
-          </div>
-        ))}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-slate-800">Milestones</h3>
+        <button
+          onClick={() => { setEditingMs(null); setShowCreate(true); }}
+          className="flex items-center gap-1 text-xs text-dict-blue hover:text-blue-800 font-medium"
+        >
+          <Plus size={12} /> Add
+        </button>
       </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-dict-blue" />
+        </div>
+      ) : milestones.length === 0 ? (
+        <p className="text-sm text-slate-400 text-center py-4">No milestones yet. Click "Add" to create one.</p>
+      ) : (
+        <div className="space-y-4">
+          {milestones.map((ms, idx) => (
+            <div key={ms.id} className="relative pl-6 group">
+              {idx < milestones.length - 1 && (
+                <div className="absolute left-[9px] top-5 bottom-[-16px] w-0.5 bg-slate-200" />
+              )}
+              <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                ms.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500' :
+                ms.status === 'IN_PROGRESS' ? 'bg-white border-blue-500' :
+                ms.status === 'DELAYED' ? 'bg-white border-red-400' :
+                'bg-white border-slate-300'
+              }`}>
+                {ms.status === 'COMPLETED' && <CheckCircle2 size={10} className="text-white" />}
+                {ms.status === 'IN_PROGRESS' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                {ms.status === 'DELAYED' && <div className="w-2 h-2 rounded-full bg-red-400" />}
+              </div>
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-700">{ms.title}</p>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setEditingMs(ms); setShowCreate(true); }} className="p-0.5 text-slate-400 hover:text-blue-600">
+                      <FileText size={12} />
+                    </button>
+                    <button onClick={() => handleDelete(ms.id)} className="p-0.5 text-slate-400 hover:text-red-600">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400">Target: {ms.target_date}</p>
+                {ms.actual_date && <p className="text-[10px] text-emerald-600">Completed: {ms.actual_date}</p>}
+                {ms.description && <p className="text-[10px] text-slate-500 mt-0.5">{ms.description}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showCreate && (
+          <MilestoneFormModal
+            projectId={projectId}
+            milestone={editingMs}
+            onClose={() => { setShowCreate(false); setEditingMs(null); }}
+            onSuccess={() => { setShowCreate(false); setEditingMs(null); loadMilestones(); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -531,6 +594,146 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{label}</p>
       <p className="text-sm font-medium text-slate-700 mt-0.5">{value}</p>
     </div>
+  );
+}
+
+function MilestoneFormModal({
+  projectId,
+  milestone,
+  onClose,
+  onSuccess,
+}: {
+  projectId: string;
+  milestone: { id: number; title: string; target_date: string; actual_date: string | null; status: string; description: string | null } | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [title, setTitle] = useState(milestone?.title || '');
+  const [targetDate, setTargetDate] = useState(milestone?.target_date || '');
+  const [actualDate, setActualDate] = useState(milestone?.actual_date || '');
+  const [status, setStatus] = useState(milestone?.status || 'PENDING');
+  const [description, setDescription] = useState(milestone?.description || '');
+  const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) { toast.error('Title is required'); return; }
+    setSubmitting(true);
+    try {
+      const body = {
+        project_id: parseInt(projectId, 10),
+        title: title.trim(),
+        target_date: targetDate || null,
+        actual_date: actualDate || null,
+        status,
+        description: description.trim() || null,
+      };
+      if (milestone) {
+        await api.put('milestones.update', body, milestone.id);
+        toast.success('Milestone updated');
+      } else {
+        await api.post('milestones.create', body);
+        toast.success('Milestone created');
+      }
+      onSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save milestone');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-bold text-slate-800">{milestone ? 'Edit Milestone' : 'New Milestone'}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g., Phase 1 Deployment"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Target Date</label>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={e => setTargetDate(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Actual Date</label>
+              <input
+                type="date"
+                value={actualDate}
+                onChange={e => setActualDate(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+            >
+              <option value="PENDING">Pending</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="DELAYED">Delayed</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Details about this milestone..."
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-dict-blue text-white rounded-lg text-sm font-medium hover:bg-blue-900 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <><CheckCircle2 size={14} /> {milestone ? 'Update' : 'Create'}</>}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 }
 

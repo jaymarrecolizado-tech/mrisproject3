@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Wifi, FolderKanban, FileText,
-  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield, ClipboardList
+  Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield, ClipboardList,
+  Bell, User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -24,12 +25,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [projects, setProjects] = useState<Array<{ id: number; name: string; color: string; total_sites: number; active_sites: number }>>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get<Array<{ id: number; name: string; color: string; total_sites: number; active_sites: number }>>('projects.list')
       .then((res) => setProjects(res.data))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      api.get<{ count: number }>('notifications.unread-count')
+        .then(res => setUnreadCount(res.data.count))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const initials = user?.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -139,13 +153,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-4 ml-auto">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-slate-700">{user?.name || 'User'}</p>
-              <p className="text-xs text-slate-400">{user?.email || ''}</p>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-dict-blue text-white flex items-center justify-center text-sm font-bold">
-              {initials}
-            </div>
+            <button
+              onClick={() => navigate('/notifications')}
+              className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+              title="Notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-dict-blue text-white flex items-center justify-center text-sm font-bold">
+                {initials}
+              </div>
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium text-slate-700">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-400">{user?.email || ''}</p>
+              </div>
+            </button>
           </div>
         </header>
 

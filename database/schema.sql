@@ -353,3 +353,21 @@ BEGIN
 END //
 
 DELIMITER ;
+
+-- ============================================================
+-- 13. NOTIFICATIONS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED,
+  title VARCHAR(200) NOT NULL,
+  message TEXT,
+  type ENUM('info', 'success', 'warning', 'error') DEFAULT 'info',
+  is_read TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user (user_id),
+  INDEX idx_read (is_read),
+  INDEX idx_created (created_at)
+) ENGINE=InnoDB;

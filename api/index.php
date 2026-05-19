@@ -118,6 +118,13 @@ $routes = [
     // Audit
     'audit.list' => ['routes/audit.php', 'GET'],
 
+    // Notifications
+    'notifications.list' => ['routes/notifications.php', 'GET'],
+    'notifications.mark-read' => ['routes/notifications.php', 'POST'],
+    'notifications.mark-all-read' => ['routes/notifications.php', 'POST'],
+    'notifications.delete' => ['routes/notifications.php', 'DELETE'],
+    'notifications.unread-count' => ['routes/notifications.php', 'GET'],
+
     // Permissions
     'permissions.list' => ['routes/permissions.php', 'GET'],
 ];
