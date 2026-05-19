@@ -1,6 +1,6 @@
 # DICT MRIS — Remaining Tasks
 
-> Last updated: 2026-05-19 (Reports page connected)
+> Last updated: 2026-05-19 (Notifications, Profile, Milestones connected)
 
 ---
 
@@ -33,30 +33,27 @@
 - Added error display, quick actions (print dashboard, export all sites), and date range filtering.
 - Removed mock `generatedReports` array.
 
-### 6. DictProjects — Real Project Detail & Milestones
-- **Issue**: Entries tab connected to API, but project detail modals, milestone management, and progress bars still use mock data.
-- **Scope**:
-  - Connect milestone list to `milestones.list` API.
-  - Connect milestone CRUD to `milestones.create`, `milestones.update`, `milestones.delete`.
-  - Replace mock project stats with `projects.stats` API.
-- **Files**: `src/pages/DictProjects.tsx`, `api/routes/milestones.php`
+### 6. ~~DictProjects — Real Project Detail & Milestones~~ ✅ DONE
+- Connected milestone list to `milestones.list` API.
+- Connected milestone CRUD to `milestones.create`, `milestones.update`, `milestones.delete`.
+- Added `MilestoneFormModal` component for creating/editing milestones.
+- Connected entries tab to `entries.list` API.
 
 ---
 
 ## Low Priority
 
-### 7. Profile / Settings Page
-- **Issue**: `auth.change-password` API endpoint exists but no UI.
-- **Scope**: Build `src/pages/Profile.tsx` with:
-  - Edit name/email
-  - Change password form
-  - View current role and permissions
-- **Files**: `src/pages/Profile.tsx`, `src/App.tsx`, `src/components/Layout.tsx`
+### 7. ~~Profile / Settings Page~~ ✅ DONE
+- Built `src/pages/Profile.tsx` with account info, permissions display, and password change form.
+- Added `/profile` route and profile avatar button in header.
+- Connected to `auth.change-password` API.
 
-### 8. Notifications Page
-- **Issue**: `notifications.list` route exists in `api/index.php` but no frontend.
-- **Scope**: Build `src/pages/Notifications.tsx` with notification list, mark-as-read, and bell icon in header.
-- **Files**: `src/pages/Notifications.tsx`, `src/App.tsx`, `src/components/Layout.tsx`, `api/routes/notifications.php` (create if missing)
+### 8. ~~Notifications Page~~ ✅ DONE
+- Built `src/pages/Notifications.tsx` with list, mark-as-read, mark-all-read, and delete.
+- Added notifications bell icon with unread count badge in header.
+- Created `api/routes/notifications.php` with all endpoints.
+- Added `notifications` table to database schema.
+- Polls unread count every 60 seconds.
 
 ---
 
@@ -74,3 +71,6 @@
 | 8 | Auth system with JWT, RBAC, login/logout | ✅ Done |
 | 9 | PHP/MySQL backend with all route handlers | ✅ Done |
 | 10 | Database schema with stored procedures | ✅ Done |
+| 11 | Notifications page with bell icon and unread badge | ✅ Done |
+| 12 | Profile/Settings page with password change | ✅ Done |
+| 13 | Milestones CRUD with modal form | ✅ Done |
