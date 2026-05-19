@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Wifi, Search, Calendar, TrendingUp, TrendingDown,
   Upload, Download, Plus, ChevronLeft, ChevronRight,
@@ -11,9 +11,11 @@ import {
 } from 'recharts';
 import { api } from '../services/api';
 import { dailySummaries, generateDailyLogs } from '../data/mockData';
+import { useToast } from '../context/ToastContext';
 import type { Site } from '../types';
 
 export default function FreeWifi() {
+  const toast = useToast();
   const [sites, setSites] = useState<Site[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,12 +28,16 @@ export default function FreeWifi() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const pageSize = 15;
 
-  useEffect(() => {
+  const fetchSites = useCallback(() => {
     api.get<Site[]>('sites.list', { project_id: 'fw' })
       .then((res) => setSites(res.data))
       .catch(() => setSites([]))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchSites();
+  }, [fetchSites]);
 
   const fwSites = sites;
 
@@ -198,7 +204,8 @@ export default function FreeWifi() {
             <option value="all">All Status</option>
             <option value="UP">UP</option>
             <option value="DOWN">DOWN</option>
-            <option value="MAINTENANCE">Maintenance</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="PENDING">Pending</option>
           </select>
           <select
             value={provinceFilter}
@@ -319,7 +326,7 @@ export default function FreeWifi() {
       {/* Log Submission Modal */}
       <AnimatePresence>
         {showLogModal && (
-          <LogModal onClose={() => setShowLogModal(false)} />
+          <LogModal onClose={() => setShowLogModal(false)} onSaved={fetchSites} sites={sites} />
         )}
       </AnimatePresence>
     </div>
@@ -330,12 +337,14 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { bg: string; text: string; label: string }> = {
     UP: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'UP' },
     DOWN: { bg: 'bg-red-100', text: 'text-red-700', label: 'DOWN' },
+    PARTIAL: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Partial' },
+    PENDING: { bg: 'bg-slate-100', text: 'text-slate-600', label: 'Pending' },
     MAINTENANCE: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Maintenance' },
   };
   const c = config[status] ?? config.DOWN;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${status === 'UP' ? 'bg-emerald-500' : status === 'DOWN' ? 'bg-red-500' : 'bg-amber-500'}`} />
+      <span className={`w-1.5 h-1.5 rounded-full ${status === 'UP' ? 'bg-emerald-500' : status === 'DOWN' ? 'bg-red-500' : status === 'PARTIAL' ? 'bg-amber-500' : 'bg-slate-400'}`} />
       {c.label}
     </span>
   );
@@ -397,24 +406,37 @@ function DetailItem({ label, value }: { label: string; value: React.ReactNode })
   );
 }
 
-function LogModal({ onClose }: { onClose: () => void }) {
+function LogModal({ onClose, onSaved, sites }: { onClose: () => void; onSaved: () => void; sites: Site[] }) {
+  const toast = useToast();
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     siteId: '', status: 'UP', users: '', bandwidth: '', remarks: '',
   });
 
+  const fwSites = useMemo(() => sites.filter(s => s.projectId === '1' || (s as any).project_code === 'FREEWIFI'), [sites]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.siteId) {
+      toast.error('Please select a site');
+      return;
+    }
+    setSubmitting(true);
     try {
       await api.post('logs.create', {
         site_id: parseInt(formData.siteId),
         status: formData.status,
-        users: parseInt(formData.users) || 0,
-        bandwidth: parseFloat(formData.bandwidth) || 0,
+        total_unique_users: parseInt(formData.users) || 0,
+        bandwidth_utilization: parseFloat(formData.bandwidth) || 0,
         remarks: formData.remarks,
       });
+      toast.success('Daily log submitted successfully');
+      onSaved();
       onClose();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to submit log');
+      toast.error(err instanceof Error ? err.message : 'Failed to submit log');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -438,14 +460,18 @@ function LogModal({ onClose }: { onClose: () => void }) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Site ID</label>
-            <input
-              type="number"
+            <label className="block text-sm font-medium text-slate-700 mb-1">Site</label>
+            <select
               value={formData.siteId}
               onChange={(e) => setFormData(prev => ({ ...prev, siteId: e.target.value }))}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
               required
-            />
+            >
+              <option value="">Select a site...</option>
+              {fwSites.map(s => (
+                <option key={s.id} value={s.id}>{s.siteCode} — {s.siteName}, {s.province}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -456,7 +482,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
             >
               <option value="UP">UP</option>
               <option value="DOWN">DOWN</option>
-              <option value="MAINTENANCE">Maintenance</option>
+              <option value="PARTIAL">Partial</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -471,7 +497,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Bandwidth (Mbps)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">BW (Mbps)</label>
               <input
                 type="number"
                 step="0.1"
@@ -496,8 +522,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
               Cancel
             </button>
-            <button type="submit" className="flex-1 px-4 py-2.5 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600">
-              Submit Log
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2.5 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Submit Log'}
             </button>
           </div>
         </form>
