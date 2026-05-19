@@ -1,0 +1,450 @@
+import { useState, useMemo, useEffect } from 'react';
+import {
+  FolderKanban, Search, ChevronLeft, ChevronRight, Plus,
+  CheckCircle2, Clock, Circle,
+  Building2, Calendar, ArrowUpDown, BarChart3, Loader2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { api } from '../services/api';
+import { projects, generateMilestones } from '../data/mockData';
+import type { Site, DictProjectEntry } from '../types';
+
+interface ProjectWithStats {
+  id: string;
+  name: string;
+  full_name: string;
+  description: string;
+  color: string;
+  completion_rate: number;
+  total_sites: number;
+  completed_sites: number;
+  ongoing_sites: number;
+  planned_sites: number;
+  delayed_sites: number;
+}
+
+export default function DictProjects() {
+  const [projectsList, setProjectsList] = useState<ProjectWithStats[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState('siteName');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const pageSize = 12;
+
+  useEffect(() => {
+    Promise.all([
+      api.get<ProjectWithStats[]>('projects.list'),
+      api.get<Site[]>('sites.list'),
+    ]).then(([projRes, siteRes]) => {
+      setProjectsList(projRes.data);
+      setSites(siteRes.data);
+      setIsLoading(false);
+    }).catch(() => {
+      setIsLoading(false);
+    });
+  }, []);
+
+  const milestoneProjects = projectsList.length > 0 ? projectsList : projects.filter(p => p.type === 'milestone').map(p => ({
+    id: p.id,
+    name: p.name,
+    full_name: p.fullName,
+    description: p.description,
+    color: p.color,
+    completion_rate: p.completionRate,
+    total_sites: p.totalSites,
+    completed_sites: 0,
+    ongoing_sites: 0,
+    planned_sites: 0,
+    delayed_sites: 0,
+  }));
+
+  const activeProject = selectedProject ? milestoneProjects.find(p => p.id === selectedProject) : null;
+  const projectSites = useMemo(() => {
+    if (!selectedProject) return [];
+    return sites.filter(s => String(s.projectId) === String(selectedProject));
+  }, [selectedProject, sites]);
+
+  const filteredSites = useMemo(() => {
+    let result = projectSites;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(s =>
+        s.siteName.toLowerCase().includes(q) ||
+        s.siteCode.toLowerCase().includes(q) ||
+        s.province.toLowerCase().includes(q)
+      );
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(s => s.status === statusFilter);
+    }
+    result = [...result].sort((a, b) => {
+      const aVal = (a as any)[sortField] ?? '';
+      const bVal = (b as any)[sortField] ?? '';
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return result;
+  }, [projectSites, search, statusFilter, sortField, sortDir]);
+
+  const totalPages = Math.ceil(filteredSites.length / pageSize);
+  const paginatedSites = filteredSites.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const toggleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-400">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedProject) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <FolderKanban className="text-dict-blue" size={26} />
+            DICT Projects
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">Select a project to view accomplishment tracking and milestones</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {milestoneProjects.map(p => (
+            <motion.div
+              key={p.id}
+              whileHover={{ y: -2 }}
+              onClick={() => setSelectedProject(p.id)}
+              className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: p.color }}>
+                    <BarChart3 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-800">{p.name}</h3>
+                    <p className="text-xs text-slate-400">{p.full_name}</p>
+                  </div>
+                </div>
+                <span className="text-lg font-bold" style={{ color: p.color }}>{p.completion_rate}%</span>
+              </div>
+
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                <div className="h-full rounded-full transition-all" style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }} />
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="bg-emerald-50 rounded-lg p-2">
+                  <p className="text-sm font-bold text-emerald-600">{p.completed_sites}</p>
+                  <p className="text-[9px] text-emerald-500 uppercase">Done</p>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-2">
+                  <p className="text-sm font-bold text-blue-600">{p.ongoing_sites}</p>
+                  <p className="text-[9px] text-blue-500 uppercase">Active</p>
+                </div>
+                <div className="bg-amber-50 rounded-lg p-2">
+                  <p className="text-sm font-bold text-amber-600">{p.planned_sites}</p>
+                  <p className="text-[9px] text-amber-500 uppercase">Planned</p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-2">
+                  <p className="text-sm font-bold text-red-600">{p.delayed_sites}</p>
+                  <p className="text-[9px] text-red-500 uppercase">Delayed</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 text-sm">
+        <button onClick={() => { setSelectedProject(null); setSelectedSite(null); }} className="text-slate-400 hover:text-slate-600">DICT Projects</button>
+        <span className="text-slate-300">/</span>
+        <span className="font-medium text-slate-800 flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeProject?.color }} />
+          {activeProject?.name}
+        </span>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-2xl" style={{ backgroundColor: activeProject?.color }}>
+              <Building2 size={28} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">{activeProject?.full_name}</h1>
+              <p className="text-sm text-slate-500">{activeProject?.description}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-2xl font-bold" style={{ color: activeProject?.color }}>{activeProject?.completion_rate}%</p>
+              <p className="text-xs text-slate-400">Completion Rate</p>
+            </div>
+            <button className="flex items-center gap-2 px-4 py-2 bg-dict-blue text-white rounded-lg text-sm hover:bg-blue-900">
+              <Plus size={14} /> Add Entry
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <h3 className="font-semibold text-slate-800 mb-4">Accomplishment by Status</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={[
+              { name: 'Completed', value: projectSites.filter(s => s.status === 'COMPLETED').length, color: '#22c55e' },
+              { name: 'Ongoing', value: projectSites.filter(s => s.status === 'ONGOING').length, color: '#3b82f6' },
+              { name: 'Planned', value: projectSites.filter(s => s.status === 'PLANNED').length, color: '#f59e0b' },
+              { name: 'Pending', value: projectSites.filter(s => s.status === 'PENDING').length, color: '#6b7280' },
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+              <YAxis stroke="#94a3b8" fontSize={11} />
+              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                {['#22c55e', '#3b82f6', '#f59e0b', '#6b7280'].map((c, i) => <Cell key={i} fill={c} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <MilestonesPanel projectId={selectedProject} />
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search sites..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+          >
+            <option value="all">All Status</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="ONGOING">Ongoing</option>
+            <option value="PLANNED">Planned</option>
+            <option value="PENDING">Pending</option>
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => toggleSort('siteName')}>
+                  <span className="flex items-center gap-1">Site <ArrowUpDown size={10} /></span>
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider">Code</th>
+                <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider">Province</th>
+                <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider">Island</th>
+                <th className="px-4 py-3 text-center font-medium text-xs uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider">Last Update</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {paginatedSites.map(site => (
+                <tr
+                  key={site.id}
+                  className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => setSelectedSite(site)}
+                >
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-800">{site.siteName}</p>
+                    <p className="text-[10px] text-slate-400">{site.nationwideId}</p>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{site.siteCode}</td>
+                  <td className="px-4 py-3 text-slate-600">{site.province}</td>
+                  <td className="px-4 py-3 text-slate-600">{site.islandGroup}</td>
+                  <td className="px-4 py-3 text-center">
+                    <StatusBadge status={site.status} />
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{site.lastUpdated}</td>
+                </tr>
+              ))}
+              {paginatedSites.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                    No sites found matching your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSites.length)} of {filteredSites.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronLeft size={16} /></button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => (
+              <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`w-8 h-8 rounded text-sm font-medium ${currentPage === i + 1 ? 'bg-dict-blue text-white' : 'hover:bg-slate-100 text-slate-600'}`}>{i + 1}</button>
+            ))}
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronRight size={16} /></button>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedSite && (
+          <SiteDetailModal site={selectedSite} projectId={selectedProject} onClose={() => setSelectedSite(null)} />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+    COMPLETED: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: <CheckCircle2 size={10} /> },
+    ONGOING: { bg: 'bg-blue-100', text: 'text-blue-700', icon: <Clock size={10} /> },
+    PLANNED: { bg: 'bg-amber-100', text: 'text-amber-700', icon: <Calendar size={10} /> },
+    PENDING: { bg: 'bg-slate-100', text: 'text-slate-700', icon: <Circle size={10} /> },
+  };
+  const c = config[status] || config.PENDING;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${c.bg} ${c.text}`}>
+      {c.icon} {status}
+    </span>
+  );
+}
+
+function MilestonesPanel({ projectId }: { projectId: string }) {
+  const milestones = useMemo(() => generateMilestones(projectId), [projectId]);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <h3 className="font-semibold text-slate-800 mb-4">Milestones</h3>
+      <div className="space-y-4">
+        {milestones.map((ms, idx) => (
+          <div key={ms.id} className="relative pl-6">
+            {idx < milestones.length - 1 && (
+              <div className="absolute left-[9px] top-5 bottom-[-16px] w-0.5 bg-slate-200" />
+            )}
+            <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              ms.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500' :
+              ms.status === 'IN_PROGRESS' ? 'bg-white border-blue-500' :
+              'bg-white border-slate-300'
+            }`}>
+              {ms.status === 'COMPLETED' && <CheckCircle2 size={10} className="text-white" />}
+              {ms.status === 'IN_PROGRESS' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-700">{ms.title}</p>
+              <p className="text-[10px] text-slate-400">Target: {ms.targetDate}</p>
+              {ms.actualDate && <p className="text-[10px] text-emerald-600">Completed: {ms.actualDate}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SiteDetailModal({ site, projectId, onClose }: { site: Site; projectId: string; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'entries'>('overview');
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-slate-800">{site.siteName}</h2>
+            <p className="text-xs text-slate-400">{site.siteCode}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={site.status} />
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+          </div>
+        </div>
+
+        <div className="flex border-b border-slate-100">
+          {(['overview', 'entries'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
+                activeTab === tab ? 'border-dict-blue text-dict-blue' : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[60vh]">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-2 gap-4">
+              <InfoRow label="Location" value={site.locationName} />
+              <InfoRow label="Province" value={site.province} />
+              <InfoRow label="Island Group" value={site.islandGroup} />
+              <InfoRow label="District" value={site.district} />
+              <InfoRow label="Coordinates" value={`${site.latitude.toFixed(4)}, ${site.longitude.toFixed(4)}`} />
+              <InfoRow label="Last Updated" value={site.lastUpdated} />
+            </div>
+          )}
+
+          {activeTab === 'entries' && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-400 text-center py-8">Accomplishment entries will appear here once submitted.</p>
+              <button className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors">
+                + Add Accomplishment Entry
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="p-3 bg-slate-50 rounded-lg">
+      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{label}</p>
+      <p className="text-sm font-medium text-slate-700 mt-0.5">{value}</p>
+    </div>
+  );
+}

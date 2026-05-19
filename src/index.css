@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dict-blue: #003366;
+  --color-dict-gold: #c9a227;
+  --color-dict-light: #f0f4f8;
+  --color-fw-sky: #0ea5e9;
+  --color-pnpki-violet: #8b5cf6;
+  --color-ilcdb-orange: #f97316;
+  --color-iidb-emerald: #10b981;
+  --color-cyber-red: #ef4444;
+  --color-elgu-amber: #d97706;
+  --color-egov-cyan: #06b6d4;
+  --color-govnet-indigo: #6366f1;
+  --color-gecs-pink: #ec4899;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Status badges */
+.status-up { background-color: #22c55e; }
+.status-down { background-color: #ef4444; }
+.status-partial { background-color: #f59e0b; }
+.status-pending { background-color: #6b7280; }
+.status-completed { background-color: #22c55e; }
+.status-ongoing { background-color: #3b82f6; }
+.status-planned { background-color: #8b5cf6; }
+.status-delayed { background-color: #ef4444; }
+
+/* Map marker animations */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.marker-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Print styles for reports */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
