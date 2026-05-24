@@ -35,15 +35,15 @@ function PrivateRoutes() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/map" element={<ProtectedRoute><MapView /></ProtectedRoute>} />
-        <Route path="/freewifi" element={<ProtectedRoute><FreeWifi /></ProtectedRoute>} />
-        <Route path="/dict-projects" element={<ProtectedRoute><DictProjects /></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
-        <Route path="/roles" element={<ProtectedRoute><RolesPage /></ProtectedRoute>} />
-        <Route path="/audit" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-        <Route path="/schema" element={<ProtectedRoute><SchemaSpec /></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute requiredPermission="dashboard.view"><Dashboard /></ProtectedRoute>} />
+        <Route path="/map" element={<ProtectedRoute requiredPermission="map.view"><MapView /></ProtectedRoute>} />
+        <Route path="/freewifi" element={<ProtectedRoute requiredPermission="logs.view"><FreeWifi /></ProtectedRoute>} />
+        <Route path="/dict-projects" element={<ProtectedRoute requiredPermission="projects.view"><DictProjects /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute requiredPermission="users.manage"><UsersPage /></ProtectedRoute>} />
+        <Route path="/roles" element={<ProtectedRoute requiredPermission="users.manage"><RolesPage /></ProtectedRoute>} />
+        <Route path="/audit" element={<ProtectedRoute requiredPermission="audit.view"><AuditTrail /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute requiredPermission="reports.view"><Reports /></ProtectedRoute>} />
+        <Route path="/schema" element={<ProtectedRoute requiredPermission="users.manage"><SchemaSpec /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />

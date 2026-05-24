@@ -8,20 +8,20 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
-const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/map', label: 'Unified Map', icon: Map },
-  { path: '/freewifi', label: 'Free WiFi', icon: Wifi },
-  { path: '/dict-projects', label: 'DICT Projects', icon: FolderKanban },
-  { path: '/users', label: 'Users', icon: Users },
-  { path: '/roles', label: 'Roles & Permissions', icon: Shield },
-  { path: '/audit', label: 'Audit Trail', icon: ClipboardList },
-  { path: '/reports', label: 'Reports', icon: FileText },
-  { path: '/schema', label: 'MySQL Spec', icon: Database },
+const navItems: Array<{ path: string; label: string; icon: typeof LayoutDashboard; permission?: string }> = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.view' },
+  { path: '/map', label: 'Unified Map', icon: Map, permission: 'map.view' },
+  { path: '/freewifi', label: 'Free WiFi', icon: Wifi, permission: 'logs.view' },
+  { path: '/dict-projects', label: 'DICT Projects', icon: FolderKanban, permission: 'projects.view' },
+  { path: '/users', label: 'Users', icon: Users, permission: 'users.manage' },
+  { path: '/roles', label: 'Roles & Permissions', icon: Shield, permission: 'users.manage' },
+  { path: '/audit', label: 'Audit Trail', icon: ClipboardList, permission: 'audit.view' },
+  { path: '/reports', label: 'Reports', icon: FileText, permission: 'reports.view' },
+  { path: '/schema', label: 'MySQL Spec', icon: Database, permission: 'users.manage' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [projects, setProjects] = useState<Array<{ id: number; name: string; color: string; total_sites: number; active_sites: number }>>([]);
@@ -88,7 +88,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-          {navItems.map((item) => {
+          {navItems.filter(item => !item.permission || hasPermission(item.permission)).map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (

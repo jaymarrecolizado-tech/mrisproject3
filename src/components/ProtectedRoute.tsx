@@ -27,14 +27,7 @@ export default function ProtectedRoute({ children, requiredPermission }: Protect
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center p-8">
-          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-slate-400">You do not have permission to view this page.</p>
-        </div>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
