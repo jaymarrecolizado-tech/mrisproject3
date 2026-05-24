@@ -10,6 +10,7 @@ export interface User {
   department: string | null;
   permissions: string[];
   project_access: Record<number, string>;
+  role_id?: number;
 }
 
 interface AuthContextType {

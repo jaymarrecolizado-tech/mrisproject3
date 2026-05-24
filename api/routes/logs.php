@@ -106,6 +106,47 @@ switch ($action) {
         // Update site status
         $db->update('sites', ['status' => $data['status'], 'last_updated' => date('Y-m-d H:i:s')], 'id = ?', [$data['site_id']]);
 
+        // --- FEAT-6: Auto-generate notifications on key status events ---
+        try {
+            $site = $db->fetchOne(
+                'SELECT site_code, location_name, province FROM sites WHERE id = ?',
+                [$data['site_id']]
+            );
+            if ($site) {
+                if ($data['status'] === 'DOWN') {
+                    // Broadcast: site is down
+                    $db->insert('notifications', [
+                        'user_id'  => null,
+                        'title'    => 'Site DOWN Alert',
+                        'message'  => 'Site ' . $site['site_code'] . ' - ' . $site['location_name'] . ', ' . $site['province'] . ' reported DOWN status.',
+                        'type'     => 'warning',
+                        'is_read'  => 0,
+                    ]);
+                } elseif ($data['status'] === 'UP') {
+                    // Check if previous day's log was DOWN (site restored)
+                    $prevLog = $db->fetchOne(
+                        'SELECT status FROM free_wifi_daily_logs
+                         WHERE site_id = ? AND log_date < ? AND id != ?
+                         ORDER BY log_date DESC LIMIT 1',
+                        [$data['site_id'], $data['log_date'], $logId]
+                    );
+                    if ($prevLog && $prevLog['status'] === 'DOWN') {
+                        $db->insert('notifications', [
+                            'user_id'  => null,
+                            'title'    => 'Site Restored',
+                            'message'  => 'Site ' . $site['site_code'] . ' - ' . $site['location_name'] . ' is back UP.',
+                            'type'     => 'success',
+                            'is_read'  => 0,
+                        ]);
+                    }
+                }
+            }
+        } catch (Exception $notifEx) {
+            // Notification failure must not affect the primary log response
+            error_log('Notification insert failed (logs.create): ' . $notifEx->getMessage());
+        }
+        // --- END FEAT-6 ---
+
         ApiResponse::success(['id' => $logId], 'Log saved', 201);
         break;
 

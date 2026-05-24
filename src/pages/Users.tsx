@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Users, Search, Plus, Edit2, Trash2, CheckCircle2, XCircle,
-  ChevronLeft, ChevronRight, Loader2, Shield, Mail, Phone, Building2,
-  Key, Eye, EyeOff
+  ChevronLeft, ChevronRight, Loader2, Shield, Mail, Building2,
+  Key, Eye, EyeOff, FolderKanban, Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
@@ -19,12 +19,22 @@ interface ApiUser {
   created_at: string;
   role_slug: string;
   role_name: string;
+  role_id: number;
 }
 
 interface Role {
   id: number;
   name: string;
   slug: string;
+}
+
+interface ProjectAccess {
+  project_id: number;
+  name: string;
+  code: string;
+  color: string;
+  type: string;
+  access_level: string | null;
 }
 
 export default function UsersPage() {
@@ -37,7 +47,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
+  const [accessUser, setAccessUser] = useState<ApiUser | null>(null);
   const toast = useToast();
   const pageSize = 10;
 
@@ -225,6 +235,13 @@ export default function UsersPage() {
                         <Edit2 size={14} />
                       </button>
                       <button
+                        onClick={() => setAccessUser(user)}
+                        className="p-1.5 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600"
+                        title="Manage Project Access"
+                      >
+                        <FolderKanban size={14} />
+                      </button>
+                      <button
                         onClick={() => handleToggleActive(user)}
                         className="p-1.5 hover:bg-amber-50 rounded-lg text-slate-400 hover:text-amber-600"
                         title={user.is_active ? 'Deactivate' : 'Activate'}
@@ -279,6 +296,15 @@ export default function UsersPage() {
               api.get<ApiUser[]>('users.list').then(res => setUsers(res.data));
               toast.success(editingUser ? 'User updated' : 'User created');
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {accessUser && (
+          <ProjectAccessModal
+            user={accessUser}
+            onClose={() => setAccessUser(null)}
           />
         )}
       </AnimatePresence>
@@ -455,6 +481,139 @@ function UserFormModal({
             </button>
           </div>
         </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ProjectAccessModal({
+  user,
+  onClose,
+}: {
+  user: ApiUser;
+  onClose: () => void;
+}) {
+  const [accessList, setAccessList] = useState<ProjectAccess[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  useEffect(() => {
+    setLoading(true);
+    api.get<ProjectAccess[]>(`users.project-access.get?id=${user.id}`)
+      .then((res) => {
+        setAccessList(res.data || []);
+      })
+      .catch((err) => {
+        toast.error(err.message || 'Failed to load project access');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [user.id]);
+
+  const handleLevelChange = (projectId: number, level: string) => {
+    setAccessList(prev => prev.map(item => 
+      item.project_id === projectId ? { ...item, access_level: level === 'none' ? null : level } : item
+    ));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = accessList.map(item => ({
+        project_id: item.project_id,
+        access_level: item.access_level || 'none'
+      }));
+      await api.put(`users.project-access.update?id=${user.id}`, { access: payload });
+      toast.success('Project access updated successfully');
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update project access');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <FolderKanban size={18} className="text-dict-blue" />
+              Project Access: {user.name}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Assign project-level view, edit, or admin permissions</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[60vh] space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-dict-blue" />
+            </div>
+          ) : accessList.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-12">No active projects found.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {accessList.map((project) => (
+                <div key={project.project_id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0`} style={{ backgroundColor: project.color || '#94a3b8' }} />
+                      <span className="font-medium text-slate-700 text-sm truncate">{project.name}</span>
+                    </div>
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono ml-4 uppercase">
+                      {project.type} ({project.code})
+                    </span>
+                  </div>
+                  <select
+                    value={project.access_level || 'none'}
+                    onChange={(e) => handleLevelChange(project.project_id, e.target.value)}
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                  >
+                    <option value="none">No Access</option>
+                    <option value="view">Viewer</option>
+                    <option value="edit">Editor</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-slate-100 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={loading || saving}
+            className="flex-1 py-2 bg-dict-blue text-white rounded-lg text-sm font-medium hover:bg-blue-900 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <><Loader2 size={14} className="animate-spin" /> Saving...</>
+            ) : (
+              <><Save size={14} /> Save Access</>
+            )}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

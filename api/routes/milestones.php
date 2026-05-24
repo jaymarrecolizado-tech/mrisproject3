@@ -89,6 +89,43 @@ switch ($action) {
             exit;
         }
         $db->update('milestones', $fields, 'id = ?', [$msId]);
+
+        // --- FEAT-6: Auto-generate notifications on milestone status changes ---
+        try {
+            if (isset($fields['status']) && in_array($fields['status'], ['COMPLETED', 'DELAYED'], true)) {
+                $ms = $db->fetchOne(
+                    'SELECT m.title, p.name as project_name
+                     FROM milestones m
+                     JOIN projects p ON p.id = m.project_id
+                     WHERE m.id = ?',
+                    [$msId]
+                );
+                if ($ms) {
+                    if ($fields['status'] === 'COMPLETED') {
+                        $db->insert('notifications', [
+                            'user_id'  => null,
+                            'title'    => 'Milestone Completed',
+                            'message'  => $ms['title'] . ' milestone has been completed for ' . $ms['project_name'] . '.',
+                            'type'     => 'success',
+                            'is_read'  => 0,
+                        ]);
+                    } elseif ($fields['status'] === 'DELAYED') {
+                        $db->insert('notifications', [
+                            'user_id'  => null,
+                            'title'    => 'Milestone Delayed',
+                            'message'  => $ms['title'] . ' has been marked as delayed.',
+                            'type'     => 'warning',
+                            'is_read'  => 0,
+                        ]);
+                    }
+                }
+            }
+        } catch (Exception $notifEx) {
+            // Notification failure must not affect the primary milestone response
+            error_log('Notification insert failed (milestones.update): ' . $notifEx->getMessage());
+        }
+        // --- END FEAT-6 ---
+
         ApiResponse::success(null, 'Milestone updated');
         break;
 

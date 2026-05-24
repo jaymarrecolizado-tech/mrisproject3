@@ -33,6 +33,7 @@ export interface Site {
   bwDownload: number;
   status: 'UP' | 'DOWN' | 'PARTIAL' | 'PENDING' | 'COMPLETED' | 'ONGOING' | 'PLANNED';
   lastUpdated: string;
+  dailyUsers?: number;
 }
 
 export interface FreeWifiDailyLog {
@@ -76,6 +77,7 @@ export interface User {
   email: string;
   role: 'admin' | 'project_manager' | 'encoder' | 'viewer';
   projectAccess: string[];
+  role_id?: number;
 }
 
 export interface RegionStats {

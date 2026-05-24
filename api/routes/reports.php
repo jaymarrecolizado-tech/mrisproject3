@@ -62,6 +62,46 @@ switch ($action) {
                 $headers = ['Date', 'Total Sites', 'UP', 'DOWN', 'Partial', 'Total Users', 'Avg Bandwidth'];
                 break;
 
+            case 'weekly_summary':
+                $reportData = $db->fetchAll(
+                    "SELECT 
+                        YEAR(log_date) as year,
+                        WEEK(log_date) as week,
+                        MIN(log_date) as week_start,
+                        MAX(log_date) as week_end,
+                        COUNT(DISTINCT site_id) as total_sites,
+                        ROUND(SUM(CASE WHEN status = 'UP' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as uptime_pct,
+                        COALESCE(SUM(total_unique_users), 0) as total_users,
+                        COALESCE(ROUND(AVG(bandwidth_utilization), 2), 0) as avg_bandwidth
+                     FROM free_wifi_daily_logs
+                     WHERE log_date BETWEEN ? AND ?
+                     GROUP BY YEAR(log_date), WEEK(log_date)
+                     ORDER BY year DESC, week DESC",
+                    [$dateFrom, $dateTo]
+                );
+                $headers = ['Year', 'Week', 'Week Start', 'Week End', 'Total Sites', 'Uptime %', 'Total Users', 'Avg Bandwidth'];
+                break;
+
+            case 'monthly_accomplishment':
+                $reportData = $db->fetchAll(
+                    "SELECT 
+                        p.name as project_name,
+                        m.title as milestone_title,
+                        m.status as milestone_status,
+                        m.target_date,
+                        m.actual_date,
+                        COALESCE(e.accomplishment_percent, 0) as accomplishment_percent,
+                        e.entry_date
+                     FROM projects p
+                     JOIN milestones m ON m.project_id = p.id
+                     LEFT JOIN dict_project_entries e ON e.project_id = p.id AND e.entry_date BETWEEN ? AND ?
+                     WHERE p.type = 'milestone' AND p.is_active = 1
+                     ORDER BY p.name, m.target_date",
+                    [$dateFrom, $dateTo]
+                );
+                $headers = ['Project Name', 'Milestone', 'Status', 'Target Date', 'Actual Date', 'Accomplishment %', 'Entry Date'];
+                break;
+
             case 'regional_breakdown':
                 $reportData = $db->fetchAll(
                     'SELECT island_group,
@@ -116,12 +156,77 @@ switch ($action) {
         // Save report record
         $reportId = $db->insert('generated_reports', [
             'report_type' => $reportType,
-            'title' => $title,
-            'format' => $format,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
+            'title'       => $title,
+            'format'      => $format,
+            'date_from'   => $dateFrom,
+            'date_to'     => $dateTo,
             'generated_by' => AuthMiddleware::getCurrentUser()['id'],
         ]);
+
+        // Explicit header → DB column maps per report type
+        $columnMaps = [
+            'daily_status'           => [
+                'Date'          => 'log_date',
+                'Total Sites'   => 'total_sites',
+                'UP'            => 'up_count',
+                'DOWN'          => 'down_count',
+                'Partial'       => 'partial_count',
+                'Total Users'   => 'total_users',
+                'Avg Bandwidth' => 'avg_bandwidth',
+            ],
+            'weekly_summary'         => [
+                'Year'          => 'year',
+                'Week'          => 'week',
+                'Week Start'    => 'week_start',
+                'Week End'      => 'week_end',
+                'Total Sites'   => 'total_sites',
+                'Uptime %'      => 'uptime_pct',
+                'Total Users'   => 'total_users',
+                'Avg Bandwidth' => 'avg_bandwidth',
+            ],
+            'monthly_accomplishment' => [
+                'Project Name'      => 'project_name',
+                'Milestone'         => 'milestone_title',
+                'Status'            => 'milestone_status',
+                'Target Date'       => 'target_date',
+                'Actual Date'       => 'actual_date',
+                'Accomplishment %'  => 'accomplishment_percent',
+                'Entry Date'        => 'entry_date',
+            ],
+            'regional_breakdown'     => [
+                'Island Group'  => 'island_group',
+                'Total Sites'   => 'total_sites',
+                'UP'            => 'up_sites',
+                'DOWN'          => 'down_sites',
+                'Avg Bandwidth' => 'avg_bandwidth',
+            ],
+            'project_completion'     => [
+                'Project ID'    => 'project_id',
+                'Code'          => 'code',
+                'Name'          => 'name',
+                'Total Sites'   => 'total_sites',
+                'Active Sites'  => 'active_sites',
+                'Down Sites'    => 'down_sites',
+                'Avg Completion'=> 'avg_completion',
+            ],
+            'isp_performance'        => [
+                'ISP Provider'  => 'isp_provider',
+                'Total Sites'   => 'total_sites',
+                'UP'            => 'up_sites',
+                'Uptime %'      => 'uptime_pct',
+                'Avg Bandwidth' => 'avg_bandwidth',
+            ],
+            'audit_trail'            => [
+                'ID'            => 'id',
+                'User'          => 'user_name',
+                'Email'         => 'user_email',
+                'Action'        => 'action',
+                'Entity Type'   => 'entity_type',
+                'Entity ID'     => 'entity_id',
+                'IP Address'    => 'ip_address',
+                'Date'          => 'created_at',
+            ],
+        ];
 
         // For CSV format, output directly as CSV file
         if ($format === 'CSV' && is_array($reportData) && count($reportData) > 0) {
@@ -134,11 +239,17 @@ switch ($action) {
             // BOM for Excel UTF-8
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($output, $headers);
+
+            $colMap = $columnMaps[$reportType] ?? null;
             foreach ($reportData as $row) {
                 $values = [];
-                foreach ($headers as $h) {
-                    $key = strtolower(str_replace(' ', '_', $h));
-                    $values[] = $row[$key] ?? $row[$headers[0] === 'Date' ? 'log_date' : array_key_first($row)] ?? '';
+                if ($colMap) {
+                    foreach ($colMap as $col) {
+                        $values[] = $row[$col] ?? '';
+                    }
+                } else {
+                    // Fallback: dump all values
+                    $values = array_values($row);
                 }
                 fputcsv($output, $values);
             }
@@ -147,8 +258,8 @@ switch ($action) {
         }
 
         ApiResponse::success([
-            'id' => $reportId,
-            'data' => $reportData,
+            'id'     => $reportId,
+            'data'   => $reportData,
             'format' => $format,
         ], 'Report generated', 201);
         break;

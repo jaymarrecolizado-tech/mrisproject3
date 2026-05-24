@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Shield, Check, X, Loader2, Save } from 'lucide-react';
+import { Shield, Check, Loader2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';

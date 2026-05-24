@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X, Loader2 } from 'lucide-react';
@@ -72,13 +73,14 @@ function apiSiteToSite(api: ApiSite): Site {
     siteCode: api.site_code,
     siteName: api.site_name || api.location_name,
     locationName: api.location_name,
+    barangay: api.barangay || '',
     province: api.province,
-    islandGroup: api.island_group,
+    islandGroup: api.island_group as any,
     district: api.district,
     municipality: api.municipality,
     latitude: api.latitude,
     longitude: api.longitude,
-    status: api.status,
+    status: api.status as any,
     ispProvider: api.isp_provider,
     bwDownload: api.bw_download,
     siteType: api.site_type,
@@ -96,14 +98,17 @@ function apiProjectToMock(api: ApiProject) {
     name: api.name,
     fullName: api.full_name,
     color: api.color,
-    type: api.type,
+    type: api.type as any,
+    icon: '',
     description: api.description,
+    activeSites: 0,
+    downSites: 0,
     completionRate: 0,
     totalSites: 0,
   };
 }
 
-function createCustomIcon(projectId: string, status: string, projectColor: string) {
+function createCustomIcon(status: string, projectColor: string) {
   const color = projectColor || '#3b82f6';
 
   const statusColors: Record<string, string> = {
@@ -224,6 +229,7 @@ export default function MapView() {
       setApiProjects(mockProjects.filter(p => p.type === 'milestone').map(p => ({
         id: p.id, code: p.name, name: p.name, fullName: p.fullName,
         color: p.color, type: p.type, description: p.description,
+        icon: p.icon || '', activeSites: p.activeSites || 0, downSites: p.downSites || 0,
         completionRate: p.completionRate, totalSites: p.totalSites,
       })));
       setSelectedProjects(mockProjects.filter(p => p.type === 'milestone').map(p => p.id));
@@ -438,7 +444,7 @@ export default function MapView() {
               <Marker
                 key={site.id}
                 position={[site.latitude, site.longitude]}
-                icon={createCustomIcon(site.projectId, site.status, project?.color || '#3b82f6')}
+                icon={createCustomIcon(site.status, project?.color || '#3b82f6')}
                 eventHandlers={{
                   click: () => setSelectedSite(site),
                 }}

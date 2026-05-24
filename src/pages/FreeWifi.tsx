@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Wifi, Search, Calendar, TrendingUp, TrendingDown,
+  Wifi, Search, Calendar,
   Upload, Download, Plus, ChevronLeft, ChevronRight,
-  Signal, Activity, ArrowUpDown, Loader2
+  Activity, ArrowUpDown, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,13 +10,14 @@ import {
   BarChart, Bar
 } from 'recharts';
 import { api } from '../services/api';
-import { dailySummaries, generateDailyLogs } from '../data/mockData';
+import { dailySummaries } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
 import type { Site } from '../types';
 
 export default function FreeWifi() {
   const toast = useToast();
   const [sites, setSites] = useState<Site[]>([]);
+  const [trendData, setTrendData] = useState<typeof dailySummaries>(dailySummaries);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -24,7 +25,6 @@ export default function FreeWifi() {
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [importType, setImportType] = useState<'logs' | 'sites'>('logs');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortField, setSortField] = useState<string>('siteName');
@@ -32,14 +32,53 @@ export default function FreeWifi() {
   const pageSize = 15;
 
   const fetchSites = useCallback(() => {
-    api.get<Site[]>('sites.list', { project_id: 'fw' })
-      .then((res) => setSites(res.data))
+    // project_id=1 is FREEWIFI — use numeric ID for reliable lookup
+    api.get<any[]>('sites.list', { project_id: 1, per_page: 2000 })
+      .then((res) => {
+        const mapped = res.data.map((apiSite: any) => ({
+          id: String(apiSite.id),
+          projectId: String(apiSite.project_id),
+          nationwideId: apiSite.nationwide_id || '',
+          siteCode: apiSite.site_code,
+          locationName: apiSite.location_name,
+          siteName: apiSite.site_name || apiSite.location_name,
+          barangay: apiSite.barangay || '',
+          municipality: apiSite.municipality || '',
+          province: apiSite.province || '',
+          district: apiSite.district || '',
+          islandGroup: apiSite.island_group,
+          latitude: Number(apiSite.latitude || 0),
+          longitude: Number(apiSite.longitude || 0),
+          siteType: apiSite.site_type || '',
+          ispProvider: apiSite.isp_provider || '',
+          lastMileTech: apiSite.last_mile_tech || '',
+          bwDownload: Number(apiSite.bw_download || 0),
+          status: apiSite.status,
+          lastUpdated: apiSite.last_updated || '',
+          dailyUsers: apiSite.daily_users || undefined
+        }));
+        setSites(mapped);
+      })
       .catch(() => setSites([]))
       .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {
     fetchSites();
+    // Fetch real 30-day trend data
+    api.get<any[]>('dashboard.daily', { days: 30 })
+      .then((res) => {
+        const normalized = res.data.map((d: any) => ({
+          date: d.date,
+          totalSites: d.total_sites ?? d.totalSites ?? 0,
+          upCount: Number(d.up_count ?? d.upCount ?? 0),
+          downCount: Number(d.down_count ?? d.downCount ?? 0),
+          totalUsers: Number(d.total_users ?? d.totalUsers ?? 0),
+          avgBandwidth: Number(d.avg_bandwidth ?? d.avgBandwidth ?? 0),
+        }));
+        if (normalized.length > 0) setTrendData(normalized as typeof dailySummaries);
+      })
+      .catch(() => {}); // keep mock data on error
   }, [fetchSites]);
 
   const fwSites = sites;
@@ -195,7 +234,7 @@ export default function FreeWifi() {
           30-Day Status Trend
         </h3>
         <ResponsiveContainer width="100%" height={200}>
-          <AreaChart data={dailySummaries}>
+          <AreaChart data={trendData}>
             <defs>
               <linearGradient id="upGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
@@ -268,7 +307,7 @@ export default function FreeWifi() {
                   <span className="flex items-center gap-1">Municipality <ArrowUpDown size={12} /></span>
                 </th>
                 <th className="text-left px-4 py-3 font-medium">ISP</th>
-                <th className="text-left px-4 py-3 font-medium cursor-pointer" onClick={() => toggleSort('bandwidth')}>
+                <th className="text-left px-4 py-3 font-medium cursor-pointer" onClick={() => toggleSort('bwDownload')}>
                   <span className="flex items-center gap-1">Bandwidth <ArrowUpDown size={12} /></span>
                 </th>
                 <th className="text-left px-4 py-3 font-medium cursor-pointer" onClick={() => toggleSort('status')}>
@@ -285,8 +324,8 @@ export default function FreeWifi() {
                   <td className="px-4 py-3 font-medium text-slate-700">{site.siteName}</td>
                   <td className="px-4 py-3 text-slate-500">{site.province}</td>
                   <td className="px-4 py-3 text-slate-500">{site.municipality}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.isp}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.bandwidth} Mbps</td>
+                  <td className="px-4 py-3 text-slate-500">{site.ispProvider}</td>
+                  <td className="px-4 py-3 text-slate-500">{site.bwDownload} Mbps</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={site.status} />
                   </td>
@@ -372,17 +411,14 @@ export default function FreeWifi() {
             importType={importType}
             onTypeChange={setImportType}
             onImport={async (file: File) => {
-              setImporting(true);
               try {
                 const endpoint = importType === 'logs' ? 'logs.bulk-import' : 'sites.import';
-                const res = await api.upload(endpoint, file);
+                const res = await api.upload<{ imported: number }>(endpoint, file);
                 toast.success(`Imported ${res.data?.imported ?? 0} records`);
                 setShowImportModal(false);
                 fetchSites();
               } catch (err: unknown) {
                 toast.error(err instanceof Error ? err.message : 'Import failed');
-              } finally {
-                setImporting(false);
               }
             }}
           />
@@ -410,8 +446,23 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void }) {
-  const logs = generateDailyLogs(site.id);
-  const recentLogs = logs.slice(-14);
+  const [recentLogs, setRecentLogs] = useState<Array<{ date: string; users: number; bandwidth: number }>>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+
+  useEffect(() => {
+    setLoadingLogs(true);
+    api.get<any[]>('logs.site-logs', { site_id: site.id, days: 14 })
+      .then((res) => {
+        const mapped = (res.data || []).map((l: any) => ({
+          date: l.log_date || l.date || '',
+          users: Number(l.total_unique_users ?? l.users ?? 0),
+          bandwidth: Number(l.bandwidth_utilization ?? l.bandwidth ?? 0),
+        })).sort((a: any, b: any) => a.date.localeCompare(b.date));
+        setRecentLogs(mapped);
+      })
+      .catch(() => setRecentLogs([]))
+      .finally(() => setLoadingLogs(false));
+  }, [site.id]);
 
   return (
     <motion.div
@@ -434,27 +485,36 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <DetailItem label="Status" value={<StatusBadge status={site.status} />} />
-            <DetailItem label="ISP" value={site.isp} />
-            <DetailItem label="Bandwidth" value={`${site.bandwidth} Mbps`} />
+            <DetailItem label="ISP" value={site.ispProvider} />
+            <DetailItem label="Bandwidth" value={`${site.bwDownload} Mbps`} />
             <DetailItem label="Daily Users" value={site.dailyUsers?.toLocaleString() ?? '—'} />
           </div>
         </div>
         <div className="p-6">
           <h3 className="font-semibold text-slate-800 mb-3">14-Day User Trend</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={recentLogs}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tickFormatter={(v) => new Date(v).getDate().toString()} stroke="#94a3b8" fontSize={11} />
-              <YAxis stroke="#94a3b8" fontSize={11} />
-              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="users" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {loadingLogs ? (
+            <div className="flex items-center justify-center h-[200px]">
+              <Loader2 className="w-6 h-6 animate-spin text-sky-500" />
+            </div>
+          ) : recentLogs.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-12">No log data available for this site.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={recentLogs}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="date" tickFormatter={(v) => new Date(v).getDate().toString()} stroke="#94a3b8" fontSize={11} />
+                <YAxis stroke="#94a3b8" fontSize={11} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="users" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Users" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </motion.div>
     </motion.div>
   );
 }
+
 
 function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (

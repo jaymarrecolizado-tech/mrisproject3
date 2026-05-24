@@ -72,9 +72,9 @@ export default function Reports() {
         await api.download('reports.generate', filename, {
           format: 'CSV',
           report_type: selectedType,
-          project_id: selectedProject || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
+          project_id: selectedProject || null,
+          date_from: dateFrom || null,
+          date_to: dateTo || null,
         });
         setGenerated(true);
         loadRecentReports();

@@ -28,7 +28,7 @@ switch ($action) {
             ApiResponse::error('Notification ID required', 400);
             exit;
         }
-        $db->update('notifications', ['is_read' => 1], 'id = ? AND user_id = ?', [$notifId, $user['id']]);
+        $db->update('notifications', ['is_read' => 1], 'id = ? AND (user_id = ? OR user_id IS NULL)', [$notifId, $user['id']]);
         ApiResponse::success(null, 'Notification marked as read');
         break;
 
@@ -46,7 +46,7 @@ switch ($action) {
             ApiResponse::error('Notification ID required', 400);
             exit;
         }
-        $db->delete('notifications', 'id = ? AND user_id = ?', [$notifId, $user['id']]);
+        $db->delete('notifications', 'id = ? AND (user_id = ? OR user_id IS NULL)', [$notifId, $user['id']]);
         ApiResponse::success(null, 'Notification deleted');
         break;
 

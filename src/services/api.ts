@@ -64,8 +64,10 @@ async function request<T>(action: string, method: string = 'GET', body?: unknown
 
   if (!response.ok) {
     if (response.status === 401) {
+      // Clear all auth state on unauthorized
       localStorage.removeItem('mris_token');
       localStorage.removeItem('mris_user');
+      sessionStorage.clear();
       const base = document.querySelector('base')?.getAttribute('href') || '/';
       window.location.href = `${base}login`;
     }

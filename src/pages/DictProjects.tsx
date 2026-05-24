@@ -44,10 +44,32 @@ export default function DictProjects() {
   useEffect(() => {
     Promise.all([
       api.get<ProjectWithStats[]>('projects.list'),
-      api.get<Site[]>('sites.list'),
+      api.get<any[]>('sites.list', { per_page: 2000 }),
     ]).then(([projRes, siteRes]) => {
       setProjectsList(projRes.data);
-      setSites(siteRes.data);
+      const mappedSites = siteRes.data.map((apiSite: any) => ({
+        id: String(apiSite.id),
+        projectId: String(apiSite.project_id),
+        nationwideId: apiSite.nationwide_id || '',
+        siteCode: apiSite.site_code,
+        locationName: apiSite.location_name,
+        siteName: apiSite.site_name || apiSite.location_name,
+        barangay: apiSite.barangay || '',
+        municipality: apiSite.municipality || '',
+        province: apiSite.province || '',
+        district: apiSite.district || '',
+        islandGroup: apiSite.island_group,
+        latitude: Number(apiSite.latitude || 0),
+        longitude: Number(apiSite.longitude || 0),
+        siteType: apiSite.site_type || '',
+        ispProvider: apiSite.isp_provider || '',
+        lastMileTech: apiSite.last_mile_tech || '',
+        bwDownload: Number(apiSite.bw_download || 0),
+        status: apiSite.status,
+        lastUpdated: apiSite.last_updated || '',
+        dailyUsers: apiSite.daily_users || undefined
+      }));
+      setSites(mappedSites);
       setIsLoading(false);
     }).catch(() => {
       setIsLoading(false);

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard, TrendingUp, TrendingDown, Activity,
   MapPin, Users, Wifi, CheckCircle2, AlertCircle,
-  Clock, ArrowUpRight, ArrowDownRight
+  Clock, ArrowUpRight, ArrowDownRight, History, User
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -54,11 +54,22 @@ interface RegionStat {
   avg_bandwidth: number;
 }
 
+interface AuditEntry {
+  id: number;
+  action: string;
+  entity_type: string;
+  entity_id: number | null;
+  ip_address: string;
+  created_at: string;
+  user_name: string;
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [regionData, setRegionData] = useState<RegionStat[]>([]);
+  const [recentActivity, setRecentActivity] = useState<AuditEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -67,7 +78,8 @@ export default function Dashboard() {
       api.get<any[]>('dashboard.daily'),
       api.get<ProjectStats[]>('projects.stats'),
       api.get<RegionStat[]>('dashboard.regional'),
-    ]).then(([statsRes, dailyRes, projRes, regionRes]) => {
+      api.get<any>('audit.list', { per_page: 8 }),
+    ]).then(([statsRes, dailyRes, projRes, regionRes, auditRes]) => {
       setStats(statsRes.data);
       // Map API snake_case format to the frontend's camelCase format
       const normalizedDailyData = dailyRes.data.map(d => ({
@@ -81,6 +93,7 @@ export default function Dashboard() {
       setDailyData(normalizedDailyData);
       setProjectStats(projRes.data);
       setRegionData(regionRes.data);
+      setRecentActivity(auditRes.data ?? []);
       setIsLoading(false);
     }).catch(() => {
       setStats(null);
@@ -360,6 +373,66 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Recent Activity Feed */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+      >
+        <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+          <History size={18} className="text-dict-blue" />
+          Recent Activity
+        </h3>
+        {recentActivity.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-6">No recent activity found.</p>
+        ) : (
+          <div className="space-y-0 divide-y divide-slate-50">
+            {recentActivity.map((entry) => {
+              const actionColor: Record<string, string> = {
+                CREATE: 'bg-emerald-100 text-emerald-700',
+                UPDATE: 'bg-blue-100 text-blue-700',
+                DELETE: 'bg-red-100 text-red-700',
+                LOGIN:  'bg-purple-100 text-purple-700',
+                LOGOUT: 'bg-slate-100 text-slate-600',
+                IMPORT: 'bg-amber-100 text-amber-700',
+                EXPORT: 'bg-sky-100 text-sky-700',
+              };
+              const color = actionColor[entry.action?.toUpperCase()] || 'bg-slate-100 text-slate-600';
+              const timeAgo = (() => {
+                const diff = Math.floor((Date.now() - new Date(entry.created_at).getTime()) / 1000);
+                if (diff < 60) return `${diff}s ago`;
+                if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                return new Date(entry.created_at).toLocaleDateString();
+              })();
+              return (
+                <div key={entry.id} className="flex items-center gap-3 py-2.5">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <User size={14} className="text-slate-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 truncate">
+                      <span className="font-medium">{entry.user_name || 'System'}</span>
+                      {' '}
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${color}`}>
+                        {entry.action}
+                      </span>
+                      {' '}
+                      <span className="text-slate-500">{entry.entity_type?.replace(/_/g, ' ')}</span>
+                      {entry.entity_id ? <span className="text-slate-400"> #{entry.entity_id}</span> : null}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex-shrink-0 flex items-center gap-1">
+                    <Clock size={10} />{timeAgo}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <QuickStat

@@ -12,15 +12,21 @@ switch ($action) {
 
     case 'sites.list':
         $page = max(1, (int)($_GET['page'] ?? 1));
-        $perPage = min(100, max(10, (int)($_GET['per_page'] ?? 20)));
+        $perPage = min(2000, max(10, (int)($_GET['per_page'] ?? 20)));
         $offset = ($page - 1) * $perPage;
 
         $where = ['1=1'];
         $params = [];
 
         if (!empty($_GET['project_id'])) {
+            $pid = $_GET['project_id'];
+            // If non-numeric (e.g. 'fw', 'freewifi'), resolve via project code
+            if (!is_numeric($pid)) {
+                $resolved = $db->fetchColumn('SELECT id FROM projects WHERE LOWER(code) = ?', [strtolower($pid)]);
+                $pid = $resolved ?: -1; // -1 ensures no match if code not found
+            }
             $where[] = 's.project_id = ?';
-            $params[] = $_GET['project_id'];
+            $params[] = (int) $pid;
         }
         if (!empty($_GET['status'])) {
             $where[] = 's.status = ?';

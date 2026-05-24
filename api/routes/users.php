@@ -16,7 +16,7 @@ switch ($action) {
             exit;
         }
         $users = $db->fetchAll(
-            'SELECT u.id, u.name, u.email, u.phone, u.department, u.is_active, u.last_login_at, u.created_at,
+            'SELECT u.id, u.name, u.email, u.phone, u.department, u.is_active, u.last_login_at, u.created_at, u.role_id,
                     r.slug as role_slug, r.name as role_name
              FROM users u
              JOIN roles r ON r.id = u.role_id
@@ -36,7 +36,7 @@ switch ($action) {
             exit;
         }
         $user = $db->fetchOne(
-            'SELECT u.id, u.name, u.email, u.phone, u.department, u.is_active, u.last_login_at, u.created_at,
+            'SELECT u.id, u.name, u.email, u.phone, u.department, u.is_active, u.last_login_at, u.created_at, u.role_id,
                     r.slug as role_slug, r.name as role_name
              FROM users u
              JOIN roles r ON r.id = u.role_id
@@ -132,6 +132,69 @@ switch ($action) {
         // Soft delete: deactivate
         $db->update('users', ['is_active' => 0], 'id = ?', [$userId]);
         ApiResponse::success(null, 'User deactivated');
+        break;
+
+    case 'users.project-access.get':
+        if (!AuthMiddleware::hasPermission('users.manage')) {
+            ApiResponse::error('Forbidden', 403);
+            exit;
+        }
+        $userId = $id ?? $_GET['id'] ?? null;
+        if (!$userId) {
+            ApiResponse::error('User ID required', 400);
+            exit;
+        }
+        // Return all projects with current access level for this user
+        $access = $db->fetchAll(
+            'SELECT p.id as project_id, p.name, p.code, p.color, p.type,
+                    COALESCE(upa.access_level, NULL) as access_level
+             FROM projects p
+             LEFT JOIN user_project_access upa ON upa.project_id = p.id AND upa.user_id = ?
+             WHERE p.is_active = 1
+             ORDER BY p.name',
+            [$userId]
+        );
+        ApiResponse::success($access);
+        break;
+
+    case 'users.project-access.update':
+        if (!AuthMiddleware::hasPermission('users.manage')) {
+            ApiResponse::error('Forbidden', 403);
+            exit;
+        }
+        $userId = $id ?? $_GET['id'] ?? null;
+        if (!$userId) {
+            ApiResponse::error('User ID required', 400);
+            exit;
+        }
+        // Expect: { "access": [ { "project_id": 1, "access_level": "view" }, ... ] }
+        $accessList = $input['access'] ?? [];
+        if (!is_array($accessList)) {
+            ApiResponse::error('access must be an array', 400);
+            exit;
+        }
+        $validLevels = ['none', 'view', 'edit', 'admin'];
+        $db->beginTransaction();
+        try {
+            // Remove all existing access entries for this user
+            $db->delete('user_project_access', 'user_id = ?', [$userId]);
+            // Re-insert non-'none' entries
+            foreach ($accessList as $entry) {
+                $pid   = (int) ($entry['project_id'] ?? 0);
+                $level = $entry['access_level'] ?? 'none';
+                if (!$pid || !in_array($level, $validLevels, true) || $level === 'none') continue;
+                $db->insert('user_project_access', [
+                    'user_id'      => (int) $userId,
+                    'project_id'   => $pid,
+                    'access_level' => $level,
+                ]);
+            }
+            $db->commit();
+            ApiResponse::success(null, 'Project access updated');
+        } catch (Exception $e) {
+            $db->rollback();
+            ApiResponse::error('Failed to update access: ' . $e->getMessage(), 500);
+        }
         break;
 
     default:
