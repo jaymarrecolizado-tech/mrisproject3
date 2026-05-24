@@ -1,36 +1,26 @@
 import type { Project, Site, FreeWifiDailyLog, DictProjectEntry, Milestone, DailySummary, RegionStats } from '../types';
 
 export const projects: Project[] = [
-  { id: 'fw', code: 'FW', name: 'Free WiFi', fullName: 'Free WiFi for All', color: '#0ea5e9', icon: 'Wifi', description: 'Nationwide free public WiFi access points', type: 'daily', totalSites: 1586, activeSites: 1420, downSites: 166, completionRate: 89.5 },
-  { id: 'pnpki', code: 'PNPKI', name: 'PNPKI', fullName: 'Philippine National Public Key Infrastructure', color: '#8b5cf6', icon: 'ShieldCheck', description: 'Digital certificate infrastructure for government', type: 'milestone', totalSites: 120, activeSites: 98, downSites: 0, completionRate: 81.7 },
-  { id: 'ilcdb', code: 'ILCDB', name: 'ILCDB', fullName: 'Integrated Local Government Database', color: '#f97316', icon: 'Database', description: 'Centralized local government unit database', type: 'milestone', totalSites: 1800, activeSites: 1450, downSites: 0, completionRate: 80.6 },
-  { id: 'iidb', code: 'IIDB', name: 'IIDB', fullName: 'Inter-Agency Information Database', color: '#10b981', icon: 'Building2', description: 'Inter-agency data sharing platform', type: 'milestone', totalSites: 85, activeSites: 62, downSites: 0, completionRate: 72.9 },
-  { id: 'cyber', code: 'CYBER', name: 'Cybersecurity', fullName: 'Cybersecurity Bureau Operations', color: '#ef4444', icon: 'ShieldAlert', description: 'National cybersecurity monitoring and response', type: 'milestone', totalSites: 45, activeSites: 38, downSites: 0, completionRate: 84.4 },
-  { id: 'elgu', code: 'eLGU', name: 'eLGU', fullName: 'Electronic Local Government Unit', color: '#d97706', icon: 'Landmark', description: 'Digital LGU service delivery platform', type: 'milestone', totalSites: 1650, activeSites: 1200, downSites: 0, completionRate: 72.7 },
-  { id: 'egov', code: 'eGov', name: 'eGov', fullName: 'e-Government Philippines', color: '#06b6d4', icon: 'IdCard', description: 'Integrated e-government services portal', type: 'milestone', totalSites: 200, activeSites: 165, downSites: 0, completionRate: 82.5 },
-  { id: 'govnet', code: 'GovNet', name: 'GovNet', fullName: 'Government Network', color: '#6366f1', icon: 'Network', description: 'Government fiber backbone network', type: 'milestone', totalSites: 320, activeSites: 290, downSites: 0, completionRate: 90.6 },
-  { id: 'gecs', code: 'GECS', name: 'GECS', fullName: 'Government Emergency Communications System', color: '#ec4899', icon: 'Radio', description: 'Emergency communications for disaster response', type: 'milestone', totalSites: 95, activeSites: 78, downSites: 0, completionRate: 82.1 },
+  { id: 'fw', code: 'FW', name: 'Free WiFi', fullName: 'Free WiFi for All', color: '#0ea5e9', icon: 'Wifi', description: 'Free public WiFi access points across Region 2', type: 'daily', totalSites: 50, activeSites: 42, downSites: 8, completionRate: 84.0 },
+  { id: 'pnpki', code: 'PNPKI', name: 'PNPKI', fullName: 'Philippine National Public Key Infrastructure', color: '#8b5cf6', icon: 'ShieldCheck', description: 'Digital certificate infrastructure for government', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'ilcdb', code: 'ILCDB', name: 'ILCDB', fullName: 'Integrated Local Government Database', color: '#f97316', icon: 'Database', description: 'Centralized local government unit database', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'iidb', code: 'IIDB', name: 'IIDB', fullName: 'Inter-Agency Information Database', color: '#10b981', icon: 'Building2', description: 'Inter-agency data sharing platform', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'cyber', code: 'CYBER', name: 'Cybersecurity', fullName: 'Cybersecurity Bureau Operations', color: '#ef4444', icon: 'ShieldAlert', description: 'National cybersecurity monitoring and response', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'elgu', code: 'eLGU', name: 'eLGU', fullName: 'Electronic Local Government Unit', color: '#d97706', icon: 'Landmark', description: 'Digital LGU service delivery platform', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'egov', code: 'eGov', name: 'eGov', fullName: 'e-Government Philippines', color: '#06b6d4', icon: 'IdCard', description: 'Integrated e-government services portal', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'govnet', code: 'GovNet', name: 'GovNet', fullName: 'Government Network', color: '#6366f1', icon: 'Network', description: 'Government fiber backbone network', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
+  { id: 'gecs', code: 'GECS', name: 'GECS', fullName: 'Government Emergency Communications System', color: '#ec4899', icon: 'Radio', description: 'Emergency communications for disaster response', type: 'milestone', totalSites: 5, activeSites: 4, downSites: 0, completionRate: 80.0 },
 ];
 
 const provinces = [
-  { name: 'Metro Manila', island: 'Luzon' as const, lat: 14.5995, lng: 120.9842 },
-  { name: 'Cebu', island: 'Visayas' as const, lat: 10.3157, lng: 123.8854 },
-  { name: 'Davao del Sur', island: 'Mindanao' as const, lat: 7.1907, lng: 125.4553 },
-  { name: 'Pangasinan', island: 'Luzon' as const, lat: 15.8949, lng: 120.2863 },
-  { name: 'Batangas', island: 'Luzon' as const, lat: 13.7565, lng: 121.0583 },
-  { name: 'Iloilo', island: 'Visayas' as const, lat: 10.7202, lng: 122.5621 },
-  { name: 'Misamis Oriental', island: 'Mindanao' as const, lat: 8.5046, lng: 124.6220 },
-  { name: 'Bulacan', island: 'Luzon' as const, lat: 14.8537, lng: 120.8163 },
-  { name: 'Negros Occidental', island: 'Visayas' as const, lat: 10.6776, lng: 122.9590 },
-  { name: 'South Cotabato', island: 'Mindanao' as const, lat: 6.4947, lng: 124.8472 },
-  { name: 'Pampanga', island: 'Luzon' as const, lat: 15.0794, lng: 120.6200 },
-  { name: 'Leyte', island: 'Visayas' as const, lat: 11.0041, lng: 124.6075 },
-  { name: 'Bukidnon', island: 'Mindanao' as const, lat: 8.0515, lng: 124.9230 },
-  { name: 'Rizal', island: 'Luzon' as const, lat: 14.6037, lng: 121.3084 },
-  { name: 'Cagayan', island: 'Luzon' as const, lat: 17.6132, lng: 121.7270 },
+  { name: 'Batanes', island: 'Luzon' as const, lat: 20.4500, lng: 121.9700 },
+  { name: 'Cagayan', island: 'Luzon' as const, lat: 17.8700, lng: 121.7740 },
+  { name: 'Isabela', island: 'Luzon' as const, lat: 16.9750, lng: 121.8000 },
+  { name: 'Nueva Vizcaya', island: 'Luzon' as const, lat: 16.3500, lng: 121.1500 },
+  { name: 'Quirino', island: 'Luzon' as const, lat: 16.2700, lng: 121.5300 },
 ];
 
-const municipalities = ['City Proper', 'Central District', 'North District', 'South District', 'East District', 'West District'];
+const municipalities = ['Tuguegarao City', 'Ilagan City', 'Cauayan City', 'Santiago City', 'Bayombong', 'Solano', 'Cabarroguis', 'Diffun', 'Basco', 'Aparri', 'Echague', 'Roxas'];
 const barangays = ['Poblacion', 'San Antonio', 'San Jose', 'Santa Maria', 'San Pedro', 'San Roque', 'Bagumbayan', 'Maharlika', 'Bayanihan'];
 const isps = ['PLDT', 'Globe', 'Converge', 'DITO', 'SkyCable', 'Royal Cable'];
 const techs = ['Fiber', 'Wireless', 'DSL', 'LTE', 'Satellite'];

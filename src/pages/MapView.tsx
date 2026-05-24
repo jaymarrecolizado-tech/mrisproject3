@@ -421,8 +421,8 @@ export default function MapView() {
 
       {/* Map */}
       <MapContainer
-        center={[12.8797, 121.774]}
-        zoom={6}
+        center={[17.0, 121.5]}
+        zoom={8}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }}
       >
