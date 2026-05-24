@@ -6,6 +6,10 @@
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
 AuthMiddleware::authenticate();
+if (!AuthMiddleware::hasPermission('users.view')) {
+    ApiResponse::error('Forbidden', 403);
+    exit;
+}
 $db = Database::getInstance();
 
 switch ($action) {

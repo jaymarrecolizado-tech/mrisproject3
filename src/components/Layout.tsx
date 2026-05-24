@@ -31,9 +31,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     api.get<Array<{ id: number; name: string; color: string; total_sites: number; active_sites: number }>>('projects.list')
-      .then((res) => setProjects(res.data))
+      .then((res) => {
+        const isAdmin = hasPermission('projects.manage');
+        const filtered = isAdmin
+          ? res.data
+          : res.data.filter(p => user?.project_access && String(p.id) in user.project_access);
+        setProjects(filtered);
+      })
       .catch(() => {});
-  }, []);
+  }, [user, hasPermission]);
 
   useEffect(() => {
     const fetchUnread = () => {

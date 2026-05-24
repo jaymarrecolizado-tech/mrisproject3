@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { api } from '../services/api';
 import { projects } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import type { Site, DictProjectEntry } from '../types';
 
 interface ProjectWithStats {
@@ -39,6 +40,7 @@ export default function DictProjects() {
   const [showSaveEntry, setShowSaveEntry] = useState(false);
   const [entrySiteId, setEntrySiteId] = useState<string | null>(null);
   const toast = useToast();
+  const { hasPermission } = useAuth();
   const pageSize = 12;
 
   useEffect(() => {
@@ -230,12 +232,14 @@ export default function DictProjects() {
               <p className="text-2xl font-bold" style={{ color: activeProject?.color }}>{activeProject?.completion_rate}%</p>
               <p className="text-xs text-slate-400">Completion Rate</p>
             </div>
-            <button
-              onClick={() => { setEntrySiteId(null); setShowSaveEntry(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-dict-blue text-white rounded-lg text-sm hover:bg-blue-900"
-            >
-              <Plus size={14} /> Add Entry
-            </button>
+            {hasPermission('entries.create') && (
+              <button
+                onClick={() => { setEntrySiteId(null); setShowSaveEntry(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-dict-blue text-white rounded-lg text-sm hover:bg-blue-900"
+              >
+                <Plus size={14} /> Add Entry
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -261,7 +265,7 @@ export default function DictProjects() {
           </ResponsiveContainer>
         </div>
 
-        <MilestonesPanel projectId={selectedProject} />
+        <MilestonesPanel projectId={selectedProject} canManage={hasPermission('milestones.manage')} />
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -355,6 +359,7 @@ export default function DictProjects() {
             projectId={selectedProject}
             onClose={() => setSelectedSite(null)}
             onAddEntry={() => { setEntrySiteId(selectedSite.id); setShowSaveEntry(true); }}
+            canCreateEntry={hasPermission('entries.create')}
           />
         )}
       </AnimatePresence>
@@ -393,7 +398,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function MilestonesPanel({ projectId }: { projectId: string }) {
+function MilestonesPanel({ projectId, canManage }: { projectId: string; canManage: boolean }) {
   const [milestones, setMilestones] = useState<Array<{ id: number; title: string; target_date: string; actual_date: string | null; status: string; description: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -423,12 +428,14 @@ function MilestonesPanel({ projectId }: { projectId: string }) {
     <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-slate-800">Milestones</h3>
-        <button
-          onClick={() => { setEditingMs(null); setShowCreate(true); }}
-          className="flex items-center gap-1 text-xs text-dict-blue hover:text-blue-800 font-medium"
-        >
-          <Plus size={12} /> Add
-        </button>
+        {canManage && (
+          <button
+            onClick={() => { setEditingMs(null); setShowCreate(true); }}
+            className="flex items-center gap-1 text-xs text-dict-blue hover:text-blue-800 font-medium"
+          >
+            <Plus size={12} /> Add
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -456,14 +463,16 @@ function MilestonesPanel({ projectId }: { projectId: string }) {
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-slate-700">{ms.title}</p>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setEditingMs(ms); setShowCreate(true); }} className="p-0.5 text-slate-400 hover:text-blue-600">
-                      <FileText size={12} />
-                    </button>
-                    <button onClick={() => handleDelete(ms.id)} className="p-0.5 text-slate-400 hover:text-red-600">
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => { setEditingMs(ms); setShowCreate(true); }} className="p-0.5 text-slate-400 hover:text-blue-600">
+                        <FileText size={12} />
+                      </button>
+                      <button onClick={() => handleDelete(ms.id)} className="p-0.5 text-slate-400 hover:text-red-600">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <p className="text-[10px] text-slate-400">Target: {ms.target_date}</p>
                 {ms.actual_date && <p className="text-[10px] text-emerald-600">Completed: {ms.actual_date}</p>}
@@ -488,7 +497,7 @@ function MilestonesPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function SiteDetailModal({ site, projectId, onClose, onAddEntry }: { site: Site; projectId: string; onClose: () => void; onAddEntry: () => void }) {
+function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry }: { site: Site; projectId: string; onClose: () => void; onAddEntry: () => void; canCreateEntry: boolean }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'entries'>('overview');
   const [entries, setEntries] = useState<DictProjectEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
@@ -559,12 +568,14 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry }: { site: Site;
               ) : entries.length === 0 ? (
                 <>
                   <p className="text-sm text-slate-400 text-center py-8">No accomplishment entries yet.</p>
-                  <button
-                    onClick={onAddEntry}
-                    className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
-                  >
-                    + Add Accomplishment Entry
-                  </button>
+                  {canCreateEntry && (
+                    <button
+                      onClick={onAddEntry}
+                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                    >
+                      + Add Accomplishment Entry
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
@@ -575,7 +586,12 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry }: { site: Site;
                           <FileText size={14} className="text-dict-blue" />
                           <span className="text-sm font-medium text-slate-700">{entry.date}</span>
                         </div>
-                        <StatusBadge status={entry.status} />
+                        <div className="flex items-center gap-2">
+                          {(entry as any).updated_by_name && (
+                            <span className="text-[10px] text-slate-400">by {(entry as any).updated_by_name}</span>
+                          )}
+                          <StatusBadge status={entry.status} />
+                        </div>
                       </div>
                       <div className="mb-2">
                         <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -594,12 +610,14 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry }: { site: Site;
                       )}
                     </div>
                   ))}
-                  <button
-                    onClick={onAddEntry}
-                    className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
-                  >
-                    + Add Another Entry
-                  </button>
+                  {canCreateEntry && (
+                    <button
+                      onClick={onAddEntry}
+                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                    >
+                      + Add Another Entry
+                    </button>
+                  )}
                 </>
               )}
             </div>

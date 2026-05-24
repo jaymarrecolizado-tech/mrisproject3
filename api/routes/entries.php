@@ -36,10 +36,12 @@ switch ($action) {
 
         $entries = $db->fetchAll(
             "SELECT e.*, s.site_code, s.location_name, s.province,
-                    p.code as project_code, p.name as project_name
+                    p.code as project_code, p.name as project_name,
+                    u.name as updated_by_name
              FROM dict_project_entries e
              LEFT JOIN sites s ON s.id = e.site_id
              JOIN projects p ON p.id = e.project_id
+             LEFT JOIN users u ON u.id = e.updated_by
              WHERE {$whereClause}
              ORDER BY e.entry_date DESC
              LIMIT ? OFFSET ?",
@@ -55,7 +57,7 @@ switch ($action) {
             ApiResponse::error('Entry ID required', 400);
             exit;
         }
-        $entry = $db->fetchOne('SELECT e.*, s.site_code, s.location_name FROM dict_project_entries e LEFT JOIN sites s ON s.id = e.site_id WHERE e.id = ?', [$entryId]);
+        $entry = $db->fetchOne('SELECT e.*, s.site_code, s.location_name, u.name as updated_by_name FROM dict_project_entries e LEFT JOIN sites s ON s.id = e.site_id LEFT JOIN users u ON u.id = e.updated_by WHERE e.id = ?', [$entryId]);
         if (!$entry) {
             ApiResponse::error('Entry not found', 404);
             exit;

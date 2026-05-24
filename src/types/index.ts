@@ -45,6 +45,7 @@ export interface FreeWifiDailyLog {
   totalUniqueUsers: number;
   remarks: string;
   loggedBy: string;
+  loggedByName?: string;
 }
 
 export interface DictProjectEntry {
@@ -58,6 +59,7 @@ export interface DictProjectEntry {
   remarks: string;
   attachments: string[];
   updatedBy: string;
+  updatedByName?: string;
 }
 
 export interface Milestone {

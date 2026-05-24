@@ -12,10 +12,12 @@ import {
 import { api } from '../services/api';
 import { dailySummaries } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import type { Site } from '../types';
 
 export default function FreeWifi() {
   const toast = useToast();
+  const { hasPermission } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
   const [trendData, setTrendData] = useState<typeof dailySummaries>(dailySummaries);
   const [isLoading, setIsLoading] = useState(true);
@@ -176,31 +178,37 @@ export default function FreeWifi() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
-          >
-            <Upload size={14} /> Import
-          </button>
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
-              <Download size={14} /> Export
+          {hasPermission('logs.bulk_import') && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+            >
+              <Upload size={14} /> Import
             </button>
-            <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-              <button onClick={handleExportLogs} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg">
-                Daily Logs
+          )}
+          {hasPermission('sites.export') && (
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+                <Download size={14} /> Export
               </button>
-              <button onClick={handleExportSites} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg">
-                Sites
-              </button>
+              <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <button onClick={handleExportLogs} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg">
+                  Daily Logs
+                </button>
+                <button onClick={handleExportSites} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg">
+                  Sites
+                </button>
+              </div>
             </div>
-          </div>
-          <button
-            onClick={() => setShowLogModal(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600"
-          >
-            <Plus size={14} /> Submit Log
-          </button>
+          )}
+          {hasPermission('logs.create') && (
+            <button
+              onClick={() => setShowLogModal(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-fw-sky text-white rounded-lg text-sm hover:bg-sky-600"
+            >
+              <Plus size={14} /> Submit Log
+            </button>
+          )}
         </div>
       </div>
 
@@ -446,7 +454,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void }) {
-  const [recentLogs, setRecentLogs] = useState<Array<{ date: string; users: number; bandwidth: number }>>([]);
+  const [recentLogs, setRecentLogs] = useState<Array<{ date: string; users: number; bandwidth: number; loggedByName: string }>>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
 
   useEffect(() => {
@@ -457,6 +465,7 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
           date: l.log_date || l.date || '',
           users: Number(l.total_unique_users ?? l.users ?? 0),
           bandwidth: Number(l.bandwidth_utilization ?? l.bandwidth ?? 0),
+          loggedByName: l.logged_by_name || '',
         })).sort((a: any, b: any) => a.date.localeCompare(b.date));
         setRecentLogs(mapped);
       })
@@ -499,15 +508,39 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
           ) : recentLogs.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-12">No log data available for this site.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={recentLogs}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="date" tickFormatter={(v) => new Date(v).getDate().toString()} stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="users" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Users" />
-              </BarChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={recentLogs}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tickFormatter={(v) => new Date(v).getDate().toString()} stroke="#94a3b8" fontSize={11} />
+                  <YAxis stroke="#94a3b8" fontSize={11} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="users" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Users" />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="mt-4 max-h-40 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-400 uppercase tracking-wider">
+                      <th className="text-left py-1.5 font-medium">Date</th>
+                      <th className="text-right py-1.5 font-medium">Users</th>
+                      <th className="text-right py-1.5 font-medium">BW %</th>
+                      <th className="text-right py-1.5 font-medium">Logged By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recentLogs.slice().reverse().map((l) => (
+                      <tr key={l.date} className="text-slate-600">
+                        <td className="py-1">{new Date(l.date).toLocaleDateString()}</td>
+                        <td className="text-right py-1">{l.users.toLocaleString()}</td>
+                        <td className="text-right py-1">{l.bandwidth}%</td>
+                        <td className="text-right py-1 text-slate-400">{l.loggedByName || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </motion.div>

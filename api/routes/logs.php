@@ -40,10 +40,12 @@ switch ($action) {
 
         $logs = $db->fetchAll(
             "SELECT l.*, s.site_code, s.location_name, s.province, s.municipality,
-                    p.code as project_code, p.name as project_name
+                    p.code as project_code, p.name as project_name,
+                    u.name as logged_by_name
              FROM free_wifi_daily_logs l
              JOIN sites s ON s.id = l.site_id
              JOIN projects p ON p.id = s.project_id
+             LEFT JOIN users u ON u.id = l.logged_by
              WHERE {$whereClause}
              ORDER BY l.log_date DESC, l.site_id
              LIMIT ? OFFSET ?",
@@ -60,9 +62,10 @@ switch ($action) {
             exit;
         }
         $log = $db->fetchOne(
-            'SELECT l.*, s.site_code, s.location_name
+            'SELECT l.*, s.site_code, s.location_name, u.name as logged_by_name
              FROM free_wifi_daily_logs l
              JOIN sites s ON s.id = l.site_id
+             LEFT JOIN users u ON u.id = l.logged_by
              WHERE l.id = ?',
             [$logId]
         );
@@ -261,9 +264,11 @@ switch ($action) {
             exit;
         }
         $logs = $db->fetchAll(
-            'SELECT * FROM free_wifi_daily_logs
-             WHERE site_id = ? AND log_date >= CURDATE() - INTERVAL ? DAY
-             ORDER BY log_date DESC',
+            'SELECT l.*, u.name as logged_by_name
+             FROM free_wifi_daily_logs l
+             LEFT JOIN users u ON u.id = l.logged_by
+             WHERE l.site_id = ? AND l.log_date >= CURDATE() - INTERVAL ? DAY
+             ORDER BY l.log_date DESC',
             [$siteId, $days]
         );
         ApiResponse::success($logs);
@@ -299,10 +304,12 @@ switch ($action) {
 
         $logs = $db->fetchAll(
             "SELECT l.*, s.site_code, s.location_name, s.province, s.municipality,
-                    p.code as project_code, p.name as project_name
+                    p.code as project_code, p.name as project_name,
+                    u.name as logged_by_name
              FROM free_wifi_daily_logs l
              JOIN sites s ON s.id = l.site_id
              JOIN projects p ON p.id = s.project_id
+             LEFT JOIN users u ON u.id = l.logged_by
              WHERE {$whereClause}
              ORDER BY l.log_date DESC, l.site_id",
             $params
@@ -313,13 +320,14 @@ switch ($action) {
         $out = fopen('php://output', 'w');
         fputcsv($out, ['Site ID', 'Site Code', 'Site Name', 'Province', 'Municipality',
                         'Project', 'Date', 'Status', 'Bandwidth Utilization %',
-                        'Total Unique Users', 'Remarks']);
+                        'Total Unique Users', 'Logged By', 'Remarks']);
         foreach ($logs as $l) {
             fputcsv($out, [
                 $l['site_id'], $l['site_code'], $l['location_name'],
                 $l['province'], $l['municipality'], $l['project_name'],
                 $l['log_date'], $l['status'], $l['bandwidth_utilization'],
-                $l['total_unique_users'], $l['remarks'] ?? '',
+                $l['total_unique_users'], $l['logged_by_name'] ?? '',
+                $l['remarks'] ?? '',
             ]);
         }
         fclose($out);
