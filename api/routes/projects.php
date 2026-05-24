@@ -113,13 +113,11 @@ switch ($action) {
     case 'projects.stats':
         $stats = $db->fetchAll(
             'SELECT p.id, p.code, p.name, p.color, p.type,
-                    COUNT(DISTINCT s.id) as total_sites,
-                    SUM(CASE WHEN s.status = "UP" THEN 1 ELSE 0 END) as up_sites,
-                    SUM(CASE WHEN s.status = "DOWN" THEN 1 ELSE 0 END) as down_sites,
-                    COALESCE(ROUND(AVG(e.accomplishment_percent), 2), 0) as completion_rate
+                    (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id) as total_sites,
+                    (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id AND s.status = "UP") as up_sites,
+                    (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id AND s.status = "DOWN") as down_sites,
+                    COALESCE(ROUND((SELECT AVG(accomplishment_percent) FROM dict_project_entries e WHERE e.project_id = p.id), 2), 0) as completion_rate
              FROM projects p
-             LEFT JOIN sites s ON s.project_id = p.id
-             LEFT JOIN dict_project_entries e ON e.project_id = p.id
              WHERE p.is_active = 1
              GROUP BY p.id'
         );

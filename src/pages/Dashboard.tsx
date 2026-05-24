@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { dailySummaries, regionStats } from '../data/mockData';
 
 interface DashboardStats {
@@ -65,12 +66,19 @@ interface AuditEntry {
 }
 
 export default function Dashboard() {
+  const { user, hasPermission } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
   const [regionData, setRegionData] = useState<RegionStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<AuditEntry[]>([]);
+  const [mySubmissions, setMySubmissions] = useState<Array<{ id: number; type: string; site_name: string; date: string; status: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isEncoder = user?.role === 'data_encoder';
+  const isManager = user?.role === 'project_manager';
+  const isAdmin = user?.role === 'super_admin';
+  const isViewer = user?.role === 'viewer';
 
   useEffect(() => {
     Promise.all([
@@ -103,6 +111,37 @@ export default function Dashboard() {
       setIsLoading(false);
     });
   }, []);
+
+  // Load encoder-specific recent submissions
+  useEffect(() => {
+    if (!isEncoder && !isManager) return;
+    const loadMyData = async () => {
+      try {
+        if (isEncoder) {
+          // Load recent logs and entries by this user
+          const [logsRes, entriesRes] = await Promise.all([
+            api.get<any[]>('logs.list', { per_page: 5 }),
+            api.get<any[]>('entries.list', { per_page: 5 }),
+          ]);
+          const logItems = (logsRes.data ?? []).map((l: any) => ({
+            id: l.id, type: 'Daily Log', site_name: l.site_name || l.site_code || `Site #${l.site_id}`,
+            date: l.log_date, status: l.status,
+          }));
+          const entryItems = (entriesRes.data ?? []).map((e: any) => ({
+            id: e.id, type: 'Project Entry', site_name: e.site_name || `Site #${e.site_id}`,
+            date: e.entry_date, status: e.status,
+          }));
+          const combined = [...logItems, ...entryItems]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 8);
+          setMySubmissions(combined);
+        }
+      } catch {
+        // Silently ignore
+      }
+    };
+    loadMyData();
+  }, [isEncoder, isManager]);
 
   const displayData = useMemo(() => {
     const mockToday = dailySummaries[dailySummaries.length - 1];
@@ -190,10 +229,13 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <LayoutDashboard className="text-dict-blue" size={26} />
-            Executive Dashboard
+            {isAdmin ? 'Executive Dashboard' : isManager ? 'Project Overview' : isEncoder ? 'My Dashboard' : 'Dashboard'}
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Real-time overview of all DICT projects nationwide
+            {isAdmin ? 'Real-time overview of all DICT Region 2 projects'
+              : isManager ? 'Status of your assigned projects in Region 2'
+              : isEncoder ? 'Your recent submissions and assigned project status'
+              : 'DICT Region 2 project overview'}
           </p>
         </div>
         <div className="text-right">
@@ -235,6 +277,78 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Encoder-specific: My Recent Submissions */}
+      {isEncoder && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+        >
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+            <History size={18} className="text-dict-blue" />
+            My Recent Submissions
+          </h3>
+          {mySubmissions.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">No submissions yet. Start by adding daily logs or project entries.</p>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {mySubmissions.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3 py-2.5">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                    item.status === 'UP' || item.status === 'COMPLETED' ? 'bg-emerald-500' :
+                    item.status === 'DOWN' || item.status === 'DELAYED' ? 'bg-red-500' :
+                    'bg-amber-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 truncate">{item.site_name}</p>
+                    <p className="text-[10px] text-slate-400">{item.type}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    item.status === 'UP' || item.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' :
+                    item.status === 'DOWN' || item.status === 'DELAYED' ? 'bg-red-50 text-red-700' :
+                    'bg-amber-50 text-amber-700'
+                  }`}>{item.status}</span>
+                  <span className="text-[10px] text-slate-400">{item.date}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Manager-specific: My Projects Quick Status */}
+      {isManager && projectStats.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+        >
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+            <CheckCircle2 size={18} className="text-dict-blue" />
+            My Projects Status
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {projectStats.map((p) => (
+              <div key={p.id} className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                  <span className="text-sm font-medium text-slate-700 truncate">{p.name}</span>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }} />
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>{p.completion_rate}% complete</span>
+                  <span>{p.up_sites}/{p.total_sites} UP</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Trend + Status Pie — Admin & Manager only */}
+      {(isAdmin || isManager) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -318,8 +432,10 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {(isAdmin || isManager) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -339,6 +455,7 @@ export default function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -373,6 +490,38 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* Admin-specific: System Overview */}
+      {isAdmin && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+        >
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+            <Users size={18} className="text-dict-blue" />
+            System Overview
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center p-3 rounded-lg bg-slate-50">
+              <p className="text-2xl font-bold text-slate-800">{projectStats.length}</p>
+              <p className="text-xs text-slate-500 mt-1">Active Projects</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-slate-50">
+              <p className="text-2xl font-bold text-slate-800">{displayData.total_sites}</p>
+              <p className="text-xs text-slate-500 mt-1">Total Sites</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-emerald-50">
+              <p className="text-2xl font-bold text-emerald-700">{displayData.active_sites}</p>
+              <p className="text-xs text-emerald-600 mt-1">Sites UP</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-red-50">
+              <p className="text-2xl font-bold text-red-700">{displayData.down_sites}</p>
+              <p className="text-xs text-red-600 mt-1">Sites DOWN</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Recent Activity Feed */}
       <motion.div
