@@ -281,6 +281,33 @@ switch ($action) {
         }
         break;
 
+    case 'sites.geo-filters':
+        $where = ['1=1'];
+        $params = [];
+        if (!empty($_GET['project_id'])) {
+            $where[] = 'project_id = ?';
+            $params[] = (int) $_GET['project_id'];
+        }
+        $whereClause = implode(' AND ', $where);
+        $provinces = $db->fetchAll(
+            "SELECT DISTINCT province FROM sites WHERE {$whereClause} AND province IS NOT NULL AND province != '' ORDER BY province",
+            $params
+        );
+        $municipalities = $db->fetchAll(
+            "SELECT DISTINCT municipality, province FROM sites WHERE {$whereClause} AND municipality IS NOT NULL AND municipality != '' ORDER BY province, municipality",
+            $params
+        );
+        $districts = $db->fetchAll(
+            "SELECT DISTINCT district, province FROM sites WHERE {$whereClause} AND district IS NOT NULL AND district != '' ORDER BY province, district",
+            $params
+        );
+        ApiResponse::success([
+            'provinces'     => array_column($provinces, 'province'),
+            'municipalities' => $municipalities,
+            'districts'     => $districts,
+        ]);
+        break;
+
     default:
         ApiResponse::error('Unknown sites action', 404);
 }

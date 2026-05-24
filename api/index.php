@@ -77,6 +77,7 @@ $routes = [
     'sites.map-data' => ['routes/sites.php', 'GET'],
     'sites.import' => ['routes/sites.php', 'POST'],
     'sites.export' => ['routes/sites.php', 'GET'],
+    'sites.geo-filters' => ['routes/sites.php', 'GET'],
 
     // Free WiFi Daily Logs
     'logs.list' => ['routes/logs.php', 'GET'],

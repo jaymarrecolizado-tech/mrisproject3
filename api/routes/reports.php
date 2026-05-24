@@ -34,15 +34,15 @@ switch ($action) {
             exit;
         }
 
-        $reportType = $input['report_type'] ?? $input['type'] ?? '';
-        $format = strtoupper($input['format'] ?? 'CSV');
-        $dateFrom = $input['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
-        $dateTo = $input['date_to'] ?? date('Y-m-d');
-        $projectId = $input['project_id'] ?? null;
+        $reportType = $input['report_type'] ?? $_GET['report_type'] ?? '';
+        $format = strtoupper($input['format'] ?? $_GET['format'] ?? 'CSV');
+        $dateFrom = $input['date_from'] ?? $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
+        $dateTo = $input['date_to'] ?? $_GET['date_to'] ?? date('Y-m-d');
+        $projectId = $input['project_id'] ?? $_GET['project_id'] ?? null;
         $title = $input['title'] ?? ucfirst(str_replace('_', ' ', $reportType)) . ' Report';
 
         $validTypes = ['daily_status', 'weekly_summary', 'monthly_accomplishment', 'regional_breakdown',
-                       'isp_performance', 'project_completion', 'audit_trail'];
+                       'isp_performance', 'project_completion', 'audit_trail', 'site_implementation'];
         if (!in_array($reportType, $validTypes)) {
             ApiResponse::error('Invalid report type', 400);
             exit;
@@ -148,6 +148,58 @@ switch ($action) {
                 $headers = ['ID', 'User', 'Email', 'Action', 'Entity Type', 'Entity ID', 'IP Address', 'Date'];
                 break;
 
+            case 'site_implementation':
+                $geoWhere = ['s.id IS NOT NULL'];
+                $geoParams = [];
+                if (!empty($input['province']) || !empty($_GET['province'])) {
+                    $geoWhere[] = 's.province = ?';
+                    $geoParams[] = $input['province'] ?? $_GET['province'];
+                }
+                if (!empty($input['municipality']) || !empty($_GET['municipality'])) {
+                    $geoWhere[] = 's.municipality = ?';
+                    $geoParams[] = $input['municipality'] ?? $_GET['municipality'];
+                }
+                if (!empty($input['district']) || !empty($_GET['district'])) {
+                    $geoWhere[] = 's.district = ?';
+                    $geoParams[] = $input['district'] ?? $_GET['district'];
+                }
+                if ($projectId) {
+                    $geoWhere[] = 's.project_id = ?';
+                    $geoParams[] = $projectId;
+                }
+                $geoClause = implode(' AND ', $geoWhere);
+                $reportData = $db->fetchAll(
+                    "SELECT s.site_code, s.site_name, s.location_name, p.name as project_name,
+                            s.barangay, s.municipality, s.province, s.district, s.island_group,
+                            s.site_type, s.isp_provider, s.last_mile_tech, s.bw_download,
+                            s.status, s.last_updated,
+                            COALESCE(l.total_users, 0) as latest_users,
+                            COALESCE(e.accomplishment_percent, 0) as accomplishment_percent,
+                            COALESCE(e.status, '-') as entry_status,
+                            eu.name as entry_updated_by
+                     FROM sites s
+                     JOIN projects p ON p.id = s.project_id
+                     LEFT JOIN (
+                         SELECT site_id, total_unique_users as total_users
+                         FROM free_wifi_daily_logs l1
+                         WHERE log_date = (SELECT MAX(log_date) FROM free_wifi_daily_logs l2 WHERE l2.site_id = l1.site_id)
+                     ) l ON l.site_id = s.id
+                     LEFT JOIN (
+                         SELECT site_id, accomplishment_percent, status, updated_by
+                         FROM dict_project_entries e1
+                         WHERE id = (SELECT MAX(id) FROM dict_project_entries e2 WHERE e2.site_id = e1.site_id)
+                     ) e ON e.site_id = s.id
+                     LEFT JOIN users eu ON eu.id = e.updated_by
+                     WHERE {$geoClause}
+                     ORDER BY s.province, s.municipality, s.site_code",
+                    $geoParams
+                );
+                $headers = ['Site Code', 'Site Name', 'Location', 'Project', 'Barangay', 'Municipality',
+                            'Province', 'District', 'Island Group', 'Site Type', 'ISP', 'Technology',
+                            'Bandwidth (Mbps)', 'Status', 'Last Updated', 'Latest Users',
+                            'Accomplishment %', 'Entry Status', 'Last Updated By'];
+                break;
+
             default:
                 $reportData = ['message' => 'Report type generated successfully'];
                 $headers = ['Message'];
@@ -225,6 +277,27 @@ switch ($action) {
                 'Entity ID'     => 'entity_id',
                 'IP Address'    => 'ip_address',
                 'Date'          => 'created_at',
+            ],
+            'site_implementation'    => [
+                'Site Code'         => 'site_code',
+                'Site Name'         => 'site_name',
+                'Location'          => 'location_name',
+                'Project'           => 'project_name',
+                'Barangay'          => 'barangay',
+                'Municipality'      => 'municipality',
+                'Province'          => 'province',
+                'District'          => 'district',
+                'Island Group'      => 'island_group',
+                'Site Type'         => 'site_type',
+                'ISP'               => 'isp_provider',
+                'Technology'        => 'last_mile_tech',
+                'Bandwidth (Mbps)'  => 'bw_download',
+                'Status'            => 'status',
+                'Last Updated'      => 'last_updated',
+                'Latest Users'      => 'latest_users',
+                'Accomplishment %'  => 'accomplishment_percent',
+                'Entry Status'      => 'entry_status',
+                'Last Updated By'   => 'entry_updated_by',
             ],
         ];
 

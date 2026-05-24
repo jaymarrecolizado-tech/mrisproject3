@@ -13,6 +13,7 @@ const reportTypes = [
   { id: 'regional_breakdown', name: 'Regional Breakdown Report', desc: 'Sites and status by island group / region', applicable: ['all'] },
   { id: 'isp_performance', name: 'ISP Performance Report', desc: 'Uptime and bandwidth by internet provider', applicable: ['fw'] },
   { id: 'project_completion', name: 'Project Completion Report', desc: 'Overall completion rate with deliverables', applicable: ['pnpki', 'ilcdb', 'iidb', 'cyber', 'elgu', 'egov', 'govnet', 'gecs'] },
+  { id: 'site_implementation', name: 'Site Implementation Report', desc: 'Site details filtered by province, municipality, or congressional district', applicable: ['all'] },
   { id: 'audit_trail', name: 'Audit Trail Report', desc: 'User activity and data change logs', applicable: ['all'] },
 ];
 
@@ -44,6 +45,12 @@ export default function Reports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [generateError, setGenerateError] = useState('');
+  const [provinceFilter, setProvinceFilter] = useState('');
+  const [municipalityFilter, setMunicipalityFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
+  const [geoProvinces, setGeoProvinces] = useState<string[]>([]);
+  const [geoMunicipalities, setGeoMunicipalities] = useState<Array<{ municipality: string; province: string }>>([]);
+  const [geoDistricts, setGeoDistricts] = useState<Array<{ district: string; province: string }>>([]);
 
   useEffect(() => {
     api.get<ApiProject[]>('projects.list')
@@ -52,6 +59,18 @@ export default function Reports() {
     loadRecentReports();
   }, []);
 
+  useEffect(() => {
+    const params: Record<string, string | number | null> = {};
+    if (selectedProject) params.project_id = selectedProject;
+    api.get<{ provinces: string[]; municipalities: Array<{ municipality: string; province: string }>; districts: Array<{ district: string; province: string }> }>('sites.geo-filters', params)
+      .then((res) => {
+        setGeoProvinces(res.data.provinces);
+        setGeoMunicipalities(res.data.municipalities);
+        setGeoDistricts(res.data.districts);
+      })
+      .catch(() => {});
+  }, [selectedProject]);
+
   const loadRecentReports = () => {
     api.getPaginated<GeneratedReport>('reports.list', { page: 1, per_page: 10 })
       .then((res) => setRecentReports(res.data))
@@ -59,6 +78,16 @@ export default function Reports() {
   };
 
   const allProjects = apiProjects.length > 0 ? apiProjects : projects.map(p => ({ id: p.id, name: p.name }));
+
+  const filteredMunicipalities = provinceFilter
+    ? geoMunicipalities.filter(m => m.province === provinceFilter).map(m => m.municipality)
+    : geoMunicipalities.map(m => m.municipality);
+
+  const filteredDistricts = provinceFilter
+    ? geoDistricts.filter(d => d.province === provinceFilter).map(d => d.district)
+    : geoDistricts.map(d => d.district);
+
+  const isSiteImplReport = selectedType === 'site_implementation';
 
   const handleGenerate = async () => {
     if (!selectedType) return;
@@ -75,6 +104,9 @@ export default function Reports() {
           project_id: selectedProject || null,
           date_from: dateFrom || null,
           date_to: dateTo || null,
+          province: isSiteImplReport ? (provinceFilter || null) : null,
+          municipality: isSiteImplReport ? (municipalityFilter || null) : null,
+          district: isSiteImplReport ? (districtFilter || null) : null,
         });
         setGenerated(true);
         loadRecentReports();
@@ -86,6 +118,11 @@ export default function Reports() {
           date_from: dateFrom,
           date_to: dateTo,
           format,
+          ...(isSiteImplReport ? {
+            province: provinceFilter || null,
+            municipality: municipalityFilter || null,
+            district: districtFilter || null,
+          } : {}),
         });
         setGenerated(true);
         loadRecentReports();
@@ -229,6 +266,47 @@ export default function Reports() {
                 />
               </div>
             </div>
+
+            {isSiteImplReport && (
+              <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Geographic Filters</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Province</label>
+                    <select
+                      value={provinceFilter}
+                      onChange={(e) => { setProvinceFilter(e.target.value); setMunicipalityFilter(''); setDistrictFilter(''); }}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                    >
+                      <option value="">All Provinces</option>
+                      {geoProvinces.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Municipality</label>
+                    <select
+                      value={municipalityFilter}
+                      onChange={(e) => setMunicipalityFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                    >
+                      <option value="">All Municipalities</option>
+                      {[...new Set(filteredMunicipalities)].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Congressional District</label>
+                    <select
+                      value={districtFilter}
+                      onChange={(e) => setDistrictFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                    >
+                      <option value="">All Districts</option>
+                      {[...new Set(filteredDistricts)].map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {applicableProjects.length > 0 && applicableProjects[0] !== 'all' && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
