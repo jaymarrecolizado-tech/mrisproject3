@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -97,7 +99,10 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $oldRow = $db->fetchOne('SELECT * FROM milestones WHERE id = ?', [$msId]);
         $db->update('milestones', $fields, 'id = ?', [$msId]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'milestone.update', 'milestone', $msId, $oldValues, $newValues);
 
         // --- FEAT-6: Auto-generate notifications on milestone status changes ---
         try {

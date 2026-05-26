@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -39,6 +41,10 @@ switch ($action) {
         if (!empty($_GET['island_group'])) {
             $where[] = 's.island_group = ?';
             $params[] = $_GET['island_group'];
+        }
+        if (!empty($_GET['region'])) {
+            $where[] = 's.province IN (SELECT name FROM provinces WHERE region = ?)';
+            $params[] = $_GET['region'];
         }
         if (!empty($_GET['search'])) {
             $search = '%' . $_GET['search'] . '%';
@@ -135,7 +141,10 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $oldRow = $db->fetchOne('SELECT * FROM sites WHERE id = ?', [$siteId]);
         $db->update('sites', $fields, 'id = ?', [$siteId]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'site.update', 'site', $siteId, $oldValues, $newValues);
         ApiResponse::success(null, 'Site updated');
         break;
 
@@ -156,6 +165,7 @@ switch ($action) {
     case 'sites.map-data':
         $projectId = $_GET['project_id'] ?? null;
         $status = $_GET['status'] ?? null;
+        $region = $_GET['region'] ?? null;
 
         $where = ['1=1'];
         $params = [];
@@ -167,6 +177,10 @@ switch ($action) {
         if ($status) {
             $where[] = 's.status = ?';
             $params[] = $status;
+        }
+        if ($region) {
+            $where[] = 's.province IN (SELECT name FROM provinces WHERE region = ?)';
+            $params[] = $region;
         }
 
         $whereClause = implode(' AND ', $where);
@@ -306,6 +320,11 @@ switch ($action) {
             'municipalities' => $municipalities,
             'districts'     => $districts,
         ]);
+        break;
+
+    case 'sites.regions':
+        $regions = $db->fetchAll('SELECT DISTINCT region FROM provinces WHERE region IS NOT NULL ORDER BY region');
+        ApiResponse::success($regions);
         break;
 
     default:

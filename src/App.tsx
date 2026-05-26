@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { DarkModeProvider } from './context/DarkModeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
@@ -68,6 +69,7 @@ function PrivateRoutes() {
 export default function App() {
   return (
     <AuthProvider>
+      <DarkModeProvider>
       <ToastProvider>
         <BrowserRouter>
           <Routes>
@@ -76,6 +78,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </ToastProvider>
+      </DarkModeProvider>
     </AuthProvider>
   );
 }

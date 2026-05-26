@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -111,7 +113,10 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $oldRow = $db->fetchOne('SELECT * FROM dict_project_entries WHERE id = ?', [$entryId]);
         $db->update('dict_project_entries', $fields, 'id = ?', [$entryId]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'entry.update', 'dict_project_entry', $entryId, $oldValues, $newValues);
         ApiResponse::success(null, 'Entry updated');
         break;
 

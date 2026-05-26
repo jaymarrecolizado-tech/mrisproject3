@@ -10,6 +10,7 @@ import { api } from '../services/api';
 import { projects } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import SitePhotos from '../components/SitePhotos';
 import type { Site, DictProjectEntry } from '../types';
 
 interface ProjectWithStats {
@@ -138,7 +139,7 @@ export default function DictProjects() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-slate-400">Loading projects...</p>
+          <p className="text-slate-400 dark:text-slate-500">Loading projects...</p>
         </div>
       </div>
     );
@@ -148,11 +149,11 @@ export default function DictProjects() {
     return (
       <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <FolderKanban className="text-dict-blue" size={26} />
             DICT Projects
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Select a project to view accomplishment tracking and milestones</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Select a project to view accomplishment tracking and milestones</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -161,7 +162,7 @@ export default function DictProjects() {
               key={p.id}
               whileHover={{ y: -2 }}
               onClick={() => setSelectedProject(p.id)}
-              className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -169,14 +170,14 @@ export default function DictProjects() {
                     <BarChart3 size={20} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-800">{p.name}</h3>
-                    <p className="text-xs text-slate-400">{p.full_name}</p>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">{p.name}</h3>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{p.full_name}</p>
                   </div>
                 </div>
                 <span className="text-lg font-bold" style={{ color: p.color }}>{p.completion_rate}%</span>
               </div>
 
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+              <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-3">
                 <div className="h-full rounded-full transition-all" style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }} />
               </div>
 
@@ -208,29 +209,29 @@ export default function DictProjects() {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-sm">
-        <button onClick={() => { setSelectedProject(null); setSelectedSite(null); }} className="text-slate-400 hover:text-slate-600">DICT Projects</button>
+        <button onClick={() => { setSelectedProject(null); setSelectedSite(null); }} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300">DICT Projects</button>
         <span className="text-slate-300">/</span>
-        <span className="font-medium text-slate-800 flex items-center gap-1.5">
+        <span className="font-medium text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeProject?.color }} />
           {activeProject?.name}
         </span>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white text-2xl" style={{ backgroundColor: activeProject?.color }}>
               <Building2 size={28} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">{activeProject?.full_name}</h1>
-              <p className="text-sm text-slate-500">{activeProject?.description}</p>
+              <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">{activeProject?.full_name}</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{activeProject?.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-2xl font-bold" style={{ color: activeProject?.color }}>{activeProject?.completion_rate}%</p>
-              <p className="text-xs text-slate-400">Completion Rate</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Completion Rate</p>
             </div>
             {hasPermission('entries.create') && (
               <button
@@ -245,8 +246,8 @@ export default function DictProjects() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-800 mb-4">Accomplishment by Status</h3>
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Accomplishment by Status</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={[
               { name: 'Completed', value: projectSites.filter(s => s.status === 'COMPLETED').length, color: '#22c55e' },
@@ -268,22 +269,22 @@ export default function DictProjects() {
         <MilestonesPanel projectId={selectedProject} canManage={hasPermission('milestones.manage')} />
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search sites..."
               value={search}
               onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
             />
           </div>
           <select
             value={statusFilter}
             onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
           >
             <option value="all">All Status</option>
             <option value="COMPLETED">Completed</option>
@@ -295,7 +296,7 @@ export default function DictProjects() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-xs uppercase tracking-wider cursor-pointer" onClick={() => toggleSort('siteName')}>
                   <span className="flex items-center gap-1">Site <ArrowUpDown size={10} /></span>
@@ -311,25 +312,25 @@ export default function DictProjects() {
               {paginatedSites.map(site => (
                 <tr
                   key={site.id}
-                  className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                   onClick={() => setSelectedSite(site)}
                 >
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-800">{site.siteName}</p>
-                    <p className="text-[10px] text-slate-400">{site.nationwideId}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100">{site.siteName}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">{site.nationwideId}</p>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{site.siteCode}</td>
-                  <td className="px-4 py-3 text-slate-600">{site.province}</td>
-                  <td className="px-4 py-3 text-slate-600">{site.islandGroup}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{site.siteCode}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{site.province}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{site.islandGroup}</td>
                   <td className="px-4 py-3 text-center">
                     <StatusBadge status={site.status} />
                   </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{site.lastUpdated}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{site.lastUpdated}</td>
                 </tr>
               ))}
               {paginatedSites.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                     No sites found matching your filters.
                   </td>
                 </tr>
@@ -339,13 +340,13 @@ export default function DictProjects() {
         </div>
 
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {filteredSites.length === 0
               ? 'No results'
               : `Showing ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredSites.length)} of ${filteredSites.length}`}
           </p>
           <div className="flex items-center gap-1">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronLeft size={16} /></button>
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30"><ChevronLeft size={16} /></button>
             {(() => {
               const delta = 2;
               const pages: (number | '...')[] = [];
@@ -358,11 +359,11 @@ export default function DictProjects() {
               }
               return pages.map((page, idx) =>
                 page === '...'
-                  ? <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-sm">…</span>
-                  : <button key={page} onClick={() => setCurrentPage(page as number)} className={`w-8 h-8 rounded text-sm font-medium ${currentPage === page ? 'bg-dict-blue text-white' : 'hover:bg-slate-100 text-slate-600'}`}>{page}</button>
+                  ? <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">…</span>
+                  : <button key={page} onClick={() => setCurrentPage(page as number)} className={`w-8 h-8 rounded text-sm font-medium ${currentPage === page ? 'bg-dict-blue text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{page}</button>
               );
             })()}
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronRight size={16} /></button>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30"><ChevronRight size={16} /></button>
           </div>
         </div>
       </div>
@@ -403,7 +404,7 @@ function StatusBadge({ status }: { status: string }) {
     COMPLETED: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: <CheckCircle2 size={10} /> },
     ONGOING: { bg: 'bg-blue-100', text: 'text-blue-700', icon: <Clock size={10} /> },
     PLANNED: { bg: 'bg-amber-100', text: 'text-amber-700', icon: <Calendar size={10} /> },
-    PENDING: { bg: 'bg-slate-100', text: 'text-slate-700', icon: <Circle size={10} /> },
+    PENDING: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-200', icon: <Circle size={10} /> },
   };
   const c = config[status] || config.PENDING;
   return (
@@ -440,9 +441,9 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-slate-800">Milestones</h3>
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Milestones</h3>
         {canManage && (
           <button
             onClick={() => { setEditingMs(null); setShowCreate(true); }}
@@ -457,7 +458,7 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
           <Loader2 className="w-5 h-5 animate-spin text-dict-blue" />
         </div>
       ) : milestones.length === 0 ? (
-        <p className="text-sm text-slate-400 text-center py-4">No milestones yet. Click "Add" to create one.</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No milestones yet. Click "Add" to create one.</p>
       ) : (
         <div className="space-y-4">
           {milestones.map((ms, idx) => (
@@ -467,9 +468,9 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
               )}
               <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                 ms.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500' :
-                ms.status === 'IN_PROGRESS' ? 'bg-white border-blue-500' :
-                ms.status === 'DELAYED' ? 'bg-white border-red-400' :
-                'bg-white border-slate-300'
+                ms.status === 'IN_PROGRESS' ? 'bg-white dark:bg-slate-800 border-blue-500' :
+                ms.status === 'DELAYED' ? 'bg-white dark:bg-slate-800 border-red-400' :
+                'bg-white dark:bg-slate-800 border-slate-300'
               }`}>
                 {ms.status === 'COMPLETED' && <CheckCircle2 size={10} className="text-white" />}
                 {ms.status === 'IN_PROGRESS' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
@@ -477,21 +478,21 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
               </div>
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-700">{ms.title}</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{ms.title}</p>
                   {canManage && (
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditingMs(ms); setShowCreate(true); }} className="p-0.5 text-slate-400 hover:text-blue-600">
+                      <button onClick={() => { setEditingMs(ms); setShowCreate(true); }} className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-blue-600">
                         <FileText size={12} />
                       </button>
-                      <button onClick={() => handleDelete(ms.id)} className="p-0.5 text-slate-400 hover:text-red-600">
+                      <button onClick={() => handleDelete(ms.id)} className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-red-600">
                         <Trash2 size={12} />
                       </button>
                     </div>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400">Target: {ms.target_date}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">Target: {ms.target_date}</p>
                 {ms.actual_date && <p className="text-[10px] text-emerald-600">Completed: {ms.actual_date}</p>}
-                {ms.description && <p className="text-[10px] text-slate-500 mt-0.5">{ms.description}</p>}
+                {ms.description && <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{ms.description}</p>}
               </div>
             </div>
           ))}
@@ -513,7 +514,7 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
 }
 
 function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry }: { site: Site; projectId: string; onClose: () => void; onAddEntry: () => void; canCreateEntry: boolean }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'entries'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'entries' | 'photos'>('overview');
   const [entries, setEntries] = useState<DictProjectEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
 
@@ -534,27 +535,27 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-slate-800">{site.siteName}</h2>
-            <p className="text-xs text-slate-400">{site.siteCode}</p>
+            <h2 className="font-bold text-slate-800 dark:text-slate-100">{site.siteName}</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500">{site.siteCode}</p>
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={site.status} />
-            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 text-xl">×</button>
           </div>
         </div>
 
         <div className="flex border-b border-slate-100">
-          {(['overview', 'entries'] as const).map(tab => (
+          {(['overview', 'entries', 'photos'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-3 text-sm font-medium capitalize border-b-2 transition-colors ${
-                activeTab === tab ? 'border-dict-blue text-dict-blue' : 'border-transparent text-slate-500 hover:text-slate-700'
+                activeTab === tab ? 'border-dict-blue text-dict-blue' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200'
               }`}
             >
               {tab}
@@ -582,11 +583,11 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
                 </div>
               ) : entries.length === 0 ? (
                 <>
-                  <p className="text-sm text-slate-400 text-center py-8">No accomplishment entries yet.</p>
+                  <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No accomplishment entries yet.</p>
                   {canCreateEntry && (
                     <button
                       onClick={onAddEntry}
-                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:border-dict-blue hover:text-dict-blue transition-colors"
                     >
                       + Add Accomplishment Entry
                     </button>
@@ -595,15 +596,15 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
               ) : (
                 <>
                   {entries.map(entry => (
-                    <div key={entry.id} className="p-3 bg-slate-50 rounded-lg">
+                    <div key={entry.id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <FileText size={14} className="text-dict-blue" />
-                          <span className="text-sm font-medium text-slate-700">{entry.date}</span>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{entry.date}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {(entry as any).updated_by_name && (
-                            <span className="text-[10px] text-slate-400">by {(entry as any).updated_by_name}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">by {(entry as any).updated_by_name}</span>
                           )}
                           <StatusBadge status={entry.status} />
                         </div>
@@ -615,20 +616,20 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
                             style={{ width: `${entry.accomplishmentPercent}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{entry.accomplishmentPercent}% accomplished</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{entry.accomplishmentPercent}% accomplished</p>
                       </div>
                       {entry.deliverables && (
-                        <p className="text-xs text-slate-600 mb-1"><span className="font-medium">Deliverables:</span> {entry.deliverables}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 mb-1"><span className="font-medium">Deliverables:</span> {entry.deliverables}</p>
                       )}
                       {entry.remarks && (
-                        <p className="text-xs text-slate-500"><span className="font-medium">Remarks:</span> {entry.remarks}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400"><span className="font-medium">Remarks:</span> {entry.remarks}</p>
                       )}
                     </div>
                   ))}
                   {canCreateEntry && (
                     <button
                       onClick={onAddEntry}
-                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 hover:border-dict-blue hover:text-dict-blue transition-colors"
+                      className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:border-dict-blue hover:text-dict-blue transition-colors"
                     >
                       + Add Another Entry
                     </button>
@@ -636,6 +637,10 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
                 </>
               )}
             </div>
+          )}
+
+          {activeTab === 'photos' && (
+            <SitePhotos siteId={site.id} canEdit={canCreateEntry} />
           )}
         </div>
       </motion.div>
@@ -645,9 +650,9 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-3 bg-slate-50 rounded-lg">
-      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{label}</p>
-      <p className="text-sm font-medium text-slate-700 mt-0.5">{value}</p>
+    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+      <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-medium">{label}</p>
+      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mt-0.5">{value}</p>
     </div>
   );
 }
@@ -707,54 +712,54 @@ function MilestoneFormModal({
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden"
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-bold text-slate-800">{milestone ? 'Edit Milestone' : 'New Milestone'}</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+          <h2 className="font-bold text-slate-800 dark:text-slate-100">{milestone ? 'Edit Milestone' : 'New Milestone'}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 text-xl">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Title</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Title</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g., Phase 1 Deployment"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
               required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Target Date</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Target Date</label>
               <input
                 type="date"
                 value={targetDate}
                 onChange={e => setTargetDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Actual Date</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Actual Date</label>
               <input
                 type="date"
                 value={actualDate}
                 onChange={e => setActualDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Status</label>
             <select
               value={status}
               onChange={e => setStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
             >
               <option value="PENDING">Pending</option>
               <option value="IN_PROGRESS">In Progress</option>
@@ -764,18 +769,18 @@ function MilestoneFormModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Description</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Details about this milestone..."
               rows={3}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               Cancel
             </button>
             <button
@@ -843,38 +848,38 @@ function SaveEntryModal({
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <FileText size={18} className="text-dict-blue" />
               Add Accomplishment Entry
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Record progress for this project</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Record progress for this project</p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 text-xl">×</button>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 text-xl">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto max-h-[70vh] space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Date</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Status</label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
               >
                 <option value="PLANNED">Planned</option>
                 <option value="ONGOING">Ongoing</option>
@@ -885,11 +890,11 @@ function SaveEntryModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Site (optional)</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Site (optional)</label>
             <select
               value={selectedSite}
               onChange={e => setSelectedSite(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
             >
               <option value="">-- General project entry --</option>
               {sites.map(s => (
@@ -899,7 +904,7 @@ function SaveEntryModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
               Accomplishment: <span className="text-dict-blue font-bold">{accomplishmentPercent}%</span>
             </label>
             <input
@@ -910,7 +915,7 @@ function SaveEntryModal({
               onChange={e => setAccomplishmentPercent(parseInt(e.target.value, 10))}
               className="w-full accent-dict-blue"
             />
-            <div className="flex justify-between text-[10px] text-slate-400">
+            <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500">
               <span>0%</span>
               <span>50%</span>
               <span>100%</span>
@@ -918,24 +923,24 @@ function SaveEntryModal({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Deliverables</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Deliverables</label>
             <textarea
               value={deliverables}
               onChange={e => setDeliverables(e.target.value)}
               placeholder="What was delivered or accomplished..."
               rows={3}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Remarks</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Remarks</label>
             <textarea
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
               placeholder="Additional notes or issues..."
               rows={2}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue resize-none"
             />
           </div>
 
@@ -943,7 +948,7 @@ function SaveEntryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Cancel
             </button>

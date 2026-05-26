@@ -3,6 +3,7 @@ import {
   FileText, Download, FileSpreadsheet,
   FileType, CheckCircle2, Clock, Printer, Loader2, Trash2
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { api } from '../services/api';
 import { projects } from '../data/mockData';
 
@@ -95,35 +96,36 @@ export default function Reports() {
     setGenerated(false);
     setGenerateError('');
     try {
+      const params: Record<string, unknown> = {
+        report_type: selectedType,
+        project_id: selectedProject || null,
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+        ...(isSiteImplReport ? {
+          province: provinceFilter || null,
+          municipality: municipalityFilter || null,
+          district: districtFilter || null,
+        } : {}),
+      };
+
       if (format === 'CSV') {
-        // CSV returns file directly
         const filename = `${selectedType}_${new Date().toISOString().split('T')[0]}.csv`;
-        await api.download('reports.generate', filename, {
-          format: 'CSV',
-          report_type: selectedType,
-          project_id: selectedProject || null,
-          date_from: dateFrom || null,
-          date_to: dateTo || null,
-          province: isSiteImplReport ? (provinceFilter || null) : null,
-          municipality: isSiteImplReport ? (municipalityFilter || null) : null,
-          district: isSiteImplReport ? (districtFilter || null) : null,
-        });
+        await api.download('reports.generate', filename, { ...params, format: 'CSV' });
         setGenerated(true);
         loadRecentReports();
-      } else {
-        // PDF/XLSX returns JSON data for display
-        await api.post('reports.generate', {
-          report_type: selectedType,
-          project_id: selectedProject,
-          date_from: dateFrom,
-          date_to: dateTo,
-          format,
-          ...(isSiteImplReport ? {
-            province: provinceFilter || null,
-            municipality: municipalityFilter || null,
-            district: districtFilter || null,
-          } : {}),
-        });
+      } else if (format === 'PDF') {
+        await api.download('reports.generate', `${selectedType}.pdf`, { ...params, format: 'PDF' });
+        setGenerated(true);
+        loadRecentReports();
+      } else if (format === 'XLSX') {
+        // XLSX: get JSON data and convert client-side
+        const res = await api.post<{ data: Record<string, unknown>[] }>('reports.generate', { ...params, format: 'XLSX' });
+        if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          const ws = XLSX.utils.json_to_sheet(res.data.data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Report');
+          XLSX.writeFile(wb, `${selectedType}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
         setGenerated(true);
         loadRecentReports();
       }
@@ -180,27 +182,27 @@ export default function Reports() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <FileText className="text-dict-blue" size={26} />
           Reports & Exports
         </h1>
-        <p className="text-slate-500 text-sm mt-1">Generate and download project reports in PDF, Excel, or CSV format</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Generate and download project reports in PDF, Excel, or CSV format</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
             <FileSpreadsheet size={18} className="text-dict-blue" />
             Generate New Report
           </h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Report Type</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Report Type</label>
               <select
                 value={selectedType}
                 onChange={(e) => { setSelectedType(e.target.value); setSelectedProject(''); }}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
               >
                 <option value="">Select report type...</option>
                 {reportTypes.map(r => (
@@ -208,7 +210,7 @@ export default function Reports() {
                 ))}
               </select>
               {selectedType && (
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   {reportTypes.find(r => r.id === selectedType)?.desc}
                 </p>
               )}
@@ -216,11 +218,11 @@ export default function Reports() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Project</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Project</label>
                 <select
                   value={selectedProject}
                   onChange={(e) => setSelectedProject(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                 >
                   <option value="">All Projects</option>
                   {allProjects.map(p => (
@@ -229,14 +231,14 @@ export default function Reports() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Format</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Format</label>
                 <div className="flex gap-2">
                   {['CSV', 'PDF', 'XLSX'].map(f => (
                     <button
                       key={f}
                       onClick={() => setFormat(f)}
                       className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium transition-colors
-                        ${format === f ? 'border-dict-blue bg-blue-50 text-dict-blue' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                        ${format === f ? 'border-dict-blue bg-blue-50 text-dict-blue' : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                     >
                       {f === 'CSV' ? <FileSpreadsheet size={14} /> : <FileType size={14} />}
                       {f}
@@ -248,57 +250,57 @@ export default function Reports() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Date From</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Date From</label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Date To</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Date To</label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                 />
               </div>
             </div>
 
             {isSiteImplReport && (
-              <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Geographic Filters</p>
+              <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Geographic Filters</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Province</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Province</label>
                     <select
                       value={provinceFilter}
                       onChange={(e) => { setProvinceFilter(e.target.value); setMunicipalityFilter(''); setDistrictFilter(''); }}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                     >
                       <option value="">All Provinces</option>
                       {geoProvinces.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Municipality</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Municipality</label>
                     <select
                       value={municipalityFilter}
                       onChange={(e) => setMunicipalityFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                     >
                       <option value="">All Municipalities</option>
                       {[...new Set(filteredMunicipalities)].map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Congressional District</label>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Congressional District</label>
                     <select
                       value={districtFilter}
                       onChange={(e) => setDistrictFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                     >
                       <option value="">All Districts</option>
                       {[...new Set(filteredDistricts)].map(d => <option key={d} value={d}>{d}</option>)}
@@ -350,21 +352,21 @@ export default function Reports() {
         </div>
 
         {/* Recent Reports */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-slate-400" />
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+            <Clock size={18} className="text-slate-400 dark:text-slate-500" />
             Recent Reports
           </h2>
           <div className="space-y-3">
             {recentReports.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">No reports generated yet</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No reports generated yet</p>
             ) : (
               recentReports.map(report => (
-                <div key={report.id} className="p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+                <div key={report.id} className="p-3 rounded-lg border border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{report.title}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{report.generated_by_name} • {formatDate(report.created_at)}</p>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{report.title}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{report.generated_by_name} • {formatDate(report.created_at)}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       report.format === 'PDF' ? 'bg-red-100 text-red-700' :
@@ -375,7 +377,7 @@ export default function Reports() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[10px] text-slate-400">{report.report_type.replace(/_/g, ' ')}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{report.report_type.replace(/_/g, ' ')}</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleDownloadReport(report)}
@@ -397,17 +399,17 @@ export default function Reports() {
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100">
-            <h3 className="text-sm font-medium text-slate-700 mb-3">Quick Actions</h3>
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-3">Quick Actions</h3>
             <div className="space-y-2">
               <button
                 onClick={handlePrintDashboard}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <Printer size={14} /> Print Current Dashboard
               </button>
               <button
                 onClick={handleExportAllSites}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <FileSpreadsheet size={14} /> Export All Sites to CSV
               </button>

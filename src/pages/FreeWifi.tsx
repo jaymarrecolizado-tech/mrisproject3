@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Wifi, Search, Calendar,
   Upload, Download, Plus, ChevronLeft, ChevronRight,
@@ -13,16 +14,18 @@ import { api } from '../services/api';
 import { dailySummaries } from '../data/mockData';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import SitePhotos from '../components/SitePhotos';
 import type { Site } from '../types';
 
 export default function FreeWifi() {
   const toast = useToast();
   const { hasPermission } = useAuth();
+  const [searchParams] = useSearchParams();
   const [sites, setSites] = useState<Site[]>([]);
   const [trendData, setTrendData] = useState<typeof dailySummaries>(dailySummaries);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
   const [provinceFilter, setProvinceFilter] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
@@ -158,7 +161,7 @@ export default function FreeWifi() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-slate-400">Loading Free WiFi sites...</p>
+          <p className="text-slate-400 dark:text-slate-500">Loading Free WiFi sites...</p>
         </div>
       </div>
     );
@@ -169,11 +172,11 @@ export default function FreeWifi() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Wifi className="text-fw-sky" size={26} />
             Free WiFi Monitoring
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Nationwide Free WiFi Program — {stats.total} sites deployed
           </p>
         </div>
@@ -181,21 +184,21 @@ export default function FreeWifi() {
           {hasPermission('logs.bulk_import') && (
             <button
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+              className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <Upload size={14} /> Import
             </button>
           )}
           {hasPermission('sites.export') && (
             <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+              <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                 <Download size={14} /> Export
               </button>
-              <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                <button onClick={handleExportLogs} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-t-lg">
+              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <button onClick={handleExportLogs} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-t-lg">
                   Daily Logs
                 </button>
-                <button onClick={handleExportSites} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-b-lg">
+                <button onClick={handleExportSites} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-b-lg">
                   Sites
                 </button>
               </div>
@@ -214,30 +217,30 @@ export default function FreeWifi() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Total Sites</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{stats.total}</p>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total Sites</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{stats.total}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Online</p>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Online</p>
           <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.up}</p>
-          <p className="text-xs text-slate-400">{stats.rate}% uptime</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">{stats.rate}% uptime</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Offline</p>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Offline</p>
           <p className="text-2xl font-bold text-red-500 mt-1">{stats.down}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Daily Users</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">Daily Users</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">
             {(trendData[trendData.length - 1]?.totalUsers ?? dailySummaries[dailySummaries.length - 1]?.totalUsers ?? 0).toLocaleString()}
           </p>
         </div>
       </div>
 
       {/* 30-day trend */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
           <Activity size={18} className="text-fw-sky" />
           30-Day Status Trend
         </h3>
@@ -265,22 +268,22 @@ export default function FreeWifi() {
       </div>
 
       {/* Filters + Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="p-4 border-b border-slate-100 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
             <input
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Search site name, code, province..."
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none"
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none"
           >
             <option value="all">All Status</option>
             <option value="UP">UP</option>
@@ -291,7 +294,7 @@ export default function FreeWifi() {
           <select
             value={provinceFilter}
             onChange={(e) => { setProvinceFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none"
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none"
           >
             <option value="all">All Provinces</option>
             {provinces.map(p => <option key={p} value={p}>{p}</option>)}
@@ -301,7 +304,7 @@ export default function FreeWifi() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                 <th className="text-left px-4 py-3 font-medium cursor-pointer" onClick={() => toggleSort('siteCode')}>
                   <span className="flex items-center gap-1">Code <ArrowUpDown size={12} /></span>
                 </th>
@@ -327,17 +330,17 @@ export default function FreeWifi() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedSites.map((site) => (
-                <tr key={site.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{site.siteCode}</td>
-                  <td className="px-4 py-3 font-medium text-slate-700">{site.siteName}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.province}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.municipality}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.ispProvider}</td>
-                  <td className="px-4 py-3 text-slate-500">{site.bwDownload} Mbps</td>
+                <tr key={site.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{site.siteCode}</td>
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{site.siteName}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{site.province}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{site.municipality}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{site.ispProvider}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{site.bwDownload} Mbps</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={site.status} />
                   </td>
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                     {site.dailyUsers?.toLocaleString() ?? '—'}
                   </td>
                   <td className="px-4 py-3">
@@ -352,7 +355,7 @@ export default function FreeWifi() {
               ))}
               {paginatedSites.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                     No sites found matching your filters.
                   </td>
                 </tr>
@@ -364,14 +367,14 @@ export default function FreeWifi() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSites.length)} of {filteredSites.length}
             </p>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -380,7 +383,7 @@ export default function FreeWifi() {
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors
-                    ${page === currentPage ? 'bg-fw-sky text-white' : 'hover:bg-slate-100 text-slate-600'}`}
+                    ${page === currentPage ? 'bg-fw-sky text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
                 >
                   {page}
                 </button>
@@ -388,7 +391,7 @@ export default function FreeWifi() {
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={16} />
               </button>
@@ -441,7 +444,7 @@ function StatusBadge({ status }: { status: string }) {
     UP: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'UP' },
     DOWN: { bg: 'bg-red-100', text: 'text-red-700', label: 'DOWN' },
     PARTIAL: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Partial' },
-    PENDING: { bg: 'bg-slate-100', text: 'text-slate-600', label: 'Pending' },
+    PENDING: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-300', label: 'Pending' },
     MAINTENANCE: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Maintenance' },
   };
   const c = config[status] ?? config.DOWN;
@@ -481,16 +484,16 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-auto"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">{site.siteName}</h2>
-              <p className="text-sm text-slate-400 mt-0.5">{site.siteCode} — {site.municipality}, {site.province}</p>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{site.siteName}</h2>
+              <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">{site.siteCode} — {site.municipality}, {site.province}</p>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500">✕</button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <DetailItem label="Status" value={<StatusBadge status={site.status} />} />
@@ -500,13 +503,13 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
           </div>
         </div>
         <div className="p-6">
-          <h3 className="font-semibold text-slate-800 mb-3">14-Day User Trend</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">14-Day User Trend</h3>
           {loadingLogs ? (
             <div className="flex items-center justify-center h-[200px]">
               <Loader2 className="w-6 h-6 animate-spin text-sky-500" />
             </div>
           ) : recentLogs.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-12">No log data available for this site.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-12">No log data available for this site.</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={200}>
@@ -521,7 +524,7 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
               <div className="mt-4 max-h-40 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-slate-400 uppercase tracking-wider">
+                    <tr className="text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                       <th className="text-left py-1.5 font-medium">Date</th>
                       <th className="text-right py-1.5 font-medium">Users</th>
                       <th className="text-right py-1.5 font-medium">BW %</th>
@@ -530,11 +533,11 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {recentLogs.slice().reverse().map((l) => (
-                      <tr key={l.date} className="text-slate-600">
+                      <tr key={l.date} className="text-slate-600 dark:text-slate-300">
                         <td className="py-1">{new Date(l.date).toLocaleDateString()}</td>
                         <td className="text-right py-1">{l.users.toLocaleString()}</td>
                         <td className="text-right py-1">{l.bandwidth}%</td>
-                        <td className="text-right py-1 text-slate-400">{l.loggedByName || '—'}</td>
+                        <td className="text-right py-1 text-slate-400 dark:text-slate-500">{l.loggedByName || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -542,6 +545,9 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
               </div>
             </>
           )}
+        </div>
+        <div className="px-6 pb-6">
+          <SitePhotos siteId={site.id} canEdit={hasPermission('sites.edit')} />
         </div>
       </motion.div>
     </motion.div>
@@ -551,9 +557,9 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
 
 function DetailItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="bg-slate-50 rounded-lg p-3">
-      <p className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-medium text-slate-700 mt-1">{value}</p>
+    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</p>
+      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mt-1">{value}</p>
     </div>
   );
 }
@@ -600,23 +606,23 @@ function LogModal({ onClose, onSaved, sites }: { onClose: () => void; onSaved: (
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Calendar size={20} className="text-fw-sky" />
             Submit Daily Log
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Site</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Site</label>
             <select
               value={formData.siteId}
               onChange={(e) => setFormData(prev => ({ ...prev, siteId: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
               required
             >
               <option value="">Select a site...</option>
@@ -626,11 +632,11 @@ function LogModal({ onClose, onSaved, sites }: { onClose: () => void; onSaved: (
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Status</label>
             <select
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none"
             >
               <option value="UP">UP</option>
               <option value="DOWN">DOWN</option>
@@ -639,39 +645,39 @@ function LogModal({ onClose, onSaved, sites }: { onClose: () => void; onSaved: (
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Users</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Users</label>
               <input
                 type="number"
                 value={formData.users}
                 onChange={(e) => setFormData(prev => ({ ...prev, users: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none"
                 placeholder="0"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">BW (Mbps)</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">BW (Mbps)</label>
               <input
                 type="number"
                 step="0.1"
                 value={formData.bandwidth}
                 onChange={(e) => setFormData(prev => ({ ...prev, bandwidth: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none"
                 placeholder="0.0"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Remarks</label>
             <textarea
               value={formData.remarks}
               onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
+              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-fw-sky/30"
               rows={3}
               placeholder="Optional notes..."
             />
           </div>
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               Cancel
             </button>
             <button
@@ -715,19 +721,19 @@ function ImportModal({ onClose, onImport, importType, onTypeChange }: {
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <Upload size={20} className="text-slate-600" />
+          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Upload size={20} className="text-slate-600 dark:text-slate-300" />
             Import CSV
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">✕</button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500">✕</button>
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Import Type</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">Import Type</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -735,7 +741,7 @@ function ImportModal({ onClose, onImport, importType, onTypeChange }: {
                 className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
                   importType === 'logs'
                     ? 'border-fw-sky bg-sky-50 text-fw-sky'
-                    : 'border-slate-200 text-slate-600'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                 }`}
               >
                 Daily Logs
@@ -746,7 +752,7 @@ function ImportModal({ onClose, onImport, importType, onTypeChange }: {
                 className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
                   importType === 'sites'
                     ? 'border-fw-sky bg-sky-50 text-fw-sky'
-                    : 'border-slate-200 text-slate-600'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                 }`}
               >
                 Sites
@@ -754,8 +760,8 @@ function ImportModal({ onClose, onImport, importType, onTypeChange }: {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">CSV File</label>
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-slate-300 transition-colors">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">CSV File</label>
+            <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-6 text-center hover:border-slate-300 transition-colors">
               <input
                 type="file"
                 accept=".csv"
@@ -764,28 +770,28 @@ function ImportModal({ onClose, onImport, importType, onTypeChange }: {
                 id="csv-upload"
               />
               <label htmlFor="csv-upload" className="cursor-pointer">
-                <Upload size={24} className="mx-auto text-slate-400 mb-2" />
-                <p className="text-sm text-slate-600">
+                <Upload size={24} className="mx-auto text-slate-400 dark:text-slate-500 mb-2" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">
                   {selectedFile ? selectedFile.name : 'Click to upload or drag and drop'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">CSV files only</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">CSV files only</p>
               </label>
             </div>
           </div>
           {importType === 'logs' && (
-            <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500 font-medium mb-1">Expected CSV columns:</p>
-              <p className="text-[11px] text-slate-400">site_id, date, status, bandwidth, users, remarks</p>
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Expected CSV columns:</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">site_id, date, status, bandwidth, users, remarks</p>
             </div>
           )}
           {importType === 'sites' && (
-            <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-xs text-slate-500 font-medium mb-1">Expected CSV columns:</p>
-              <p className="text-[11px] text-slate-400">project_id, site_code, location, site_name, barangay, municipality, province, island_group, lat, lng, type, ISP, bandwidth, status</p>
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Expected CSV columns:</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">project_id, site_code, location, site_name, barangay, municipality, province, island_group, lat, lng, type, ISP, bandwidth, status</p>
             </div>
           )}
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
               Cancel
             </button>
             <button

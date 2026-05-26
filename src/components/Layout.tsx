@@ -3,9 +3,10 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Map, Wifi, FolderKanban, FileText,
   Database, Users, ChevronLeft, ChevronRight, Menu, X, LogOut, Shield, ClipboardList,
-  Bell
+  Bell, Sun, Moon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useDarkMode } from '../context/DarkModeContext';
 import { api } from '../services/api';
 
 const navItems: Array<{ path: string; label: string; icon: typeof LayoutDashboard; permission?: string }> = [
@@ -22,6 +23,7 @@ const navItems: Array<{ path: string; label: string; icon: typeof LayoutDashboar
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, hasPermission } = useAuth();
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [projects, setProjects] = useState<Array<{ id: number; name: string; color: string; total_sites: number; active_sites: number }>>([]);
@@ -55,7 +57,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const initials = user?.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"
@@ -139,7 +141,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
         </nav>
 
-        <div className="p-3 border-t border-white/10">
+        <div className="p-3 border-t border-white/10 space-y-1">
+          <button
+            onClick={toggleDarkMode}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/10 w-full"
+          >
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            {!collapsed && <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>}
+          </button>
           <button
             onClick={logout}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/10 w-full"
@@ -151,17 +160,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
+        <header className="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 lg:px-6">
           <button
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 rounded-lg hover:bg-slate-100"
+            className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 dark:text-slate-200"
           >
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-4 ml-auto">
             <button
               onClick={() => navigate('/notifications')}
-              className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+              className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
               title="Notifications"
             >
               <Bell size={20} />
@@ -173,15 +182,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
             <button
               onClick={() => navigate('/profile')}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               title="Profile"
             >
               <div className="w-8 h-8 rounded-full bg-dict-blue text-white flex items-center justify-center text-sm font-bold">
                 {initials}
               </div>
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-slate-700">{user?.name || 'User'}</p>
-                <p className="text-xs text-slate-400">{user?.email || ''}</p>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">{user?.email || ''}</p>
               </div>
             </button>
           </div>

@@ -86,7 +86,13 @@ $routes = [
     'sites.map-data' => ['routes/sites.php', 'GET'],
     'sites.import' => ['routes/sites.php', 'POST'],
     'sites.export' => ['routes/sites.php', 'GET'],
+
+    // Photos
+    'photos.upload' => ['routes/photos.php', 'POST'],
+    'photos.list' => ['routes/photos.php', 'GET'],
+    'photos.delete' => ['routes/photos.php', 'DELETE'],
     'sites.geo-filters' => ['routes/sites.php', 'GET'],
+    'sites.regions' => ['routes/sites.php', 'GET'],
 
     // Free WiFi Daily Logs
     'logs.list' => ['routes/logs.php', 'GET'],
@@ -118,6 +124,7 @@ $routes = [
     'dashboard.trends' => ['routes/dashboard.php', 'GET'],
     'dashboard.daily' => ['routes/dashboard.php', 'GET'],
     'dashboard.regional' => ['routes/dashboard.php', 'GET'],
+    'dashboard.milestones' => ['routes/dashboard.php', 'GET'],
 
     // Reports
     'reports.list' => ['routes/reports.php', 'GET'],

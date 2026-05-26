@@ -68,17 +68,17 @@ export default function Profile() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <User className="text-dict-blue" size={26} />
           Profile & Settings
         </h1>
-        <p className="text-slate-500 text-sm mt-1">Manage your account information and password</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage your account information and password</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Account Info */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-800 mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-5 flex items-center gap-2">
             <User size={18} className="text-dict-blue" />
             Account Information
           </h2>
@@ -88,8 +88,8 @@ export default function Profile() {
               {initials}
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">{user?.name}</h3>
-              <p className="text-sm text-slate-500">{user?.email}</p>
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{user?.name}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
             </div>
           </div>
 
@@ -100,15 +100,15 @@ export default function Profile() {
           </div>
 
           {role?.description && (
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-              <p className="text-xs text-slate-500">{role.description}</p>
+            <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+              <p className="text-xs text-slate-500 dark:text-slate-400">{role.description}</p>
             </div>
           )}
         </div>
 
         {/* Permissions */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-800 mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-5 flex items-center gap-2">
             <Shield size={18} className="text-dict-blue" />
             Permissions
           </h2>
@@ -116,39 +116,39 @@ export default function Profile() {
           {role?.permissions && role.permissions.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {role.permissions.map(p => (
-                <div key={p.id} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                <div key={p.id} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">
                   <CheckCircle2 size={12} className="text-emerald-500" />
-                  <span className="text-xs text-slate-700">{p.name.replace(/_/g, ' ')}</span>
+                  <span className="text-xs text-slate-700 dark:text-slate-200">{p.name.replace(/_/g, ' ')}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 text-center py-4">Loading permissions...</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">Loading permissions...</p>
           )}
         </div>
 
         {/* Change Password */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm lg:col-span-2">
-          <h2 className="font-semibold text-slate-800 mb-5 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm lg:col-span-2">
+          <h2 className="font-semibold text-slate-800 dark:text-slate-100 mb-5 flex items-center gap-2">
             <Key size={18} className="text-dict-blue" />
             Change Password
           </h2>
 
           <form onSubmit={handleChangePassword} className="max-w-lg space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Current Password</label>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Current Password</label>
               <div className="relative">
                 <input
                   type={showCurrent ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={e => setCurrentPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue pr-10"
+                  className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue pr-10"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                 >
                   {showCurrent ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -157,27 +157,27 @@ export default function Profile() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">New Password</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">New Password</label>
                 <div className="relative">
                   <input
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue pr-10"
+                    className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue pr-10"
                     required
                     minLength={6}
                   />
                   <button
                     type="button"
                     onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   >
                     {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Confirm Password</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Confirm Password</label>
                 <div className="relative">
                   <input
                     type={showConfirm ? 'text' : 'password'}
@@ -186,7 +186,7 @@ export default function Profile() {
                     className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 pr-10 ${
                       confirmPassword && newPassword !== confirmPassword
                         ? 'border-red-300 focus:ring-red-300'
-                        : 'border-slate-200 focus:ring-dict-blue'
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-dict-blue'
                     }`}
                     required
                     minLength={6}
@@ -194,7 +194,7 @@ export default function Profile() {
                   <button
                     type="button"
                     onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   >
                     {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -229,11 +229,11 @@ export default function Profile() {
 
 function InfoField({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-      <div className="text-slate-400">{icon}</div>
+    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+      <div className="text-slate-400 dark:text-slate-500">{icon}</div>
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">{label}</p>
-        <p className="text-sm font-medium text-slate-700">{value}</p>
+        <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-medium">{label}</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{value}</p>
       </div>
     </div>
   );

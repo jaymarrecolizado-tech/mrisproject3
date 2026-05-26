@@ -37,6 +37,22 @@ switch ($action) {
         ApiResponse::success($regional);
         break;
 
+    case 'dashboard.milestones':
+        $statusCounts = $db->fetchAll(
+            'SELECT status, COUNT(*) as count FROM milestones GROUP BY status ORDER BY count DESC'
+        );
+        $monthlyTrend = $db->fetchAll(
+            "SELECT DATE_FORMAT(COALESCE(actual_date, target_date), '%Y-%m') as month,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress
+             FROM milestones
+             WHERE COALESCE(actual_date, target_date) >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+             GROUP BY month ORDER BY month"
+        );
+        ApiResponse::success(['status_counts' => $statusCounts, 'monthly_trend' => $monthlyTrend]);
+        break;
+
     default:
         ApiResponse::error('Unknown dashboard action', 404);
 }

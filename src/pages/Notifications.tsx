@@ -91,11 +91,11 @@ export default function Notifications() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Bell className="text-dict-blue" size={26} />
             Notifications
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
           </p>
         </div>
@@ -115,7 +115,7 @@ export default function Notifications() {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === f ? 'bg-dict-blue text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              filter === f ? 'bg-dict-blue text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             {f === 'all' ? 'All' : `Unread (${unreadCount})`}
@@ -123,13 +123,13 @@ export default function Notifications() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-dict-blue" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500">
             <Bell size={40} className="mb-3 opacity-30" />
             <p className="text-sm">No notifications</p>
           </div>
@@ -138,25 +138,25 @@ export default function Notifications() {
             {filtered.map(n => (
               <div
                 key={n.id}
-                className={`p-4 hover:bg-slate-50 transition-colors ${!n.is_read ? 'bg-blue-50/30' : ''}`}
+                className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${!n.is_read ? 'bg-blue-50/30' : ''}`}
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 flex-shrink-0">{typeIcon(n.type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-slate-800">{n.title}</p>
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{n.title}</p>
                       {!n.is_read && (
                         <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-sm text-slate-500 mt-0.5">{n.message}</p>
-                    <p className="text-xs text-slate-400 mt-1">{formatDate(n.created_at)}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{n.message}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{formatDate(n.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {!n.is_read && (
                       <button
                         onClick={() => markAsRead(n.id)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-600 rounded hover:bg-emerald-50"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-emerald-600 rounded hover:bg-emerald-50"
                         title="Mark as read"
                       >
                         <Check size={14} />
@@ -164,7 +164,7 @@ export default function Notifications() {
                     )}
                     <button
                       onClick={() => deleteNotification(n.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50"
+                      className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-600 rounded hover:bg-red-50"
                       title="Delete"
                     >
                       <Trash2 size={14} />

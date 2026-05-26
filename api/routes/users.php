@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -128,7 +130,10 @@ switch ($action) {
                 exit;
             }
         }
+        $oldRow = $db->fetchOne('SELECT * FROM users WHERE id = ?', [$userId]);
         $db->update('users', $fields, 'id = ?', [$userId]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'user.update', 'user', $userId, $oldValues, $newValues);
         ApiResponse::success(null, 'User updated');
         break;
 

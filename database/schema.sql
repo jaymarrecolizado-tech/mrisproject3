@@ -371,3 +371,22 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_read (is_read),
   INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- 15. SITE PHOTOS
+-- ============================================================
+
+CREATE TABLE site_photos (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  site_id INT UNSIGNED NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_size INT UNSIGNED,
+  mime_type VARCHAR(50),
+  caption VARCHAR(255),
+  uploaded_by INT UNSIGNED,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+  FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_site (site_id)
+) ENGINE=InnoDB;

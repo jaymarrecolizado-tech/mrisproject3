@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -172,7 +174,10 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $oldRow = $db->fetchOne('SELECT * FROM free_wifi_daily_logs WHERE id = ?', [$logId]);
         $db->update('free_wifi_daily_logs', $fields, 'id = ?', [$logId]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'log.update', 'daily_log', $logId, $oldValues, $newValues);
         ApiResponse::success(null, 'Log updated');
         break;
 

@@ -8,6 +8,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
+// PDF support
+$fpdfPath = __DIR__ . '/../lib/fpdf.php';
+$hasFPDF = file_exists($fpdfPath);
+if ($hasFPDF) {
+    require_once $fpdfPath;
+    define('FPDF_FONTPATH', __DIR__ . '/../lib/font/');
+}
+
 switch ($action) {
 
     case 'reports.list':
@@ -300,6 +308,68 @@ switch ($action) {
                 'Last Updated By'   => 'entry_updated_by',
             ],
         ];
+
+        // For PDF format, generate with FPDF
+        if ($format === 'PDF' && $hasFPDF && is_array($reportData) && count($reportData) > 0) {
+            $pdf = new FPDF('L', 'mm', 'A4');
+            $pdf->SetAutoPageBreak(true, 15);
+            $pdf->AddPage();
+
+            // Title
+            $pdf->SetFont('Helvetica', 'B', 14);
+            $pdf->Cell(0, 10, $title, 0, 1, 'C');
+            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->Cell(0, 5, "Date Range: {$dateFrom} to {$dateTo} | Generated: " . date('Y-m-d H:i:s'), 0, 1, 'C');
+            $pdf->Ln(5);
+
+            // Headers
+            $colMap = $columnMaps[$reportType] ?? null;
+            $colLabels = $colMap ? array_keys($colMap) : $headers;
+            $colCount = count($colLabels);
+            $colWidth = min(floor(270 / $colCount), 50);
+
+            $pdf->SetFont('Helvetica', 'B', 7);
+            $pdf->SetFillColor(41, 65, 122);
+            $pdf->SetTextColor(255, 255, 255);
+            foreach ($colLabels as $h) {
+                $pdf->Cell($colWidth, 6, substr($h, 0, 25), 1, 0, 'C', true);
+            }
+            $pdf->Ln();
+
+            // Rows
+            $pdf->SetFont('Helvetica', '', 7);
+            $pdf->SetTextColor(0, 0, 0);
+            $rowIdx = 0;
+            foreach ($reportData as $row) {
+                if ($rowIdx % 2 === 0) {
+                    $pdf->SetFillColor(245, 247, 250);
+                } else {
+                    $pdf->SetFillColor(255, 255, 255);
+                }
+                if ($colMap) {
+                    foreach ($colMap as $col) {
+                        $val = (string)($row[$col] ?? '');
+                        $pdf->Cell($colWidth, 5, substr($val, 0, 35), 1, 0, 'L', true);
+                    }
+                } else {
+                    foreach (array_values($row) as $val) {
+                        $pdf->Cell($colWidth, 5, substr((string)$val, 0, 35), 1, 0, 'L', true);
+                    }
+                }
+                $pdf->Ln();
+                $rowIdx++;
+            }
+
+            // Footer
+            $pdf->SetY(-15);
+            $pdf->SetFont('Helvetica', 'I', 7);
+            $pdf->SetTextColor(150, 150, 150);
+            $pdf->Cell(0, 10, 'DICT MRIS - Region 2 | Page ' . $pdf->PageNo(), 0, 0, 'C');
+
+            $filename = strtolower(str_replace(' ', '_', $title)) . '_' . date('Y-m-d') . '.pdf';
+            $pdf->Output('D', $filename);
+            exit;
+        }
 
         // For CSV format, output directly as CSV file
         if ($format === 'CSV' && is_array($reportData) && count($reportData) > 0) {

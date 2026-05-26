@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/AuditHelper.php';
+
 AuthMiddleware::authenticate();
 $db = Database::getInstance();
 
@@ -85,14 +87,10 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $oldRow = $db->fetchOne('SELECT * FROM projects WHERE id = ?', [$projectId]);
         $db->update('projects', $fields, 'id = ?', [$projectId]);
-        $db->insert('audit_logs', [
-            'user_id' => AuthMiddleware::getCurrentUser()['id'],
-            'action' => 'project.update',
-            'entity_type' => 'project',
-            'entity_id' => $projectId,
-            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-        ]);
+        [$oldValues, $newValues] = AuditHelper::diff($oldRow, $fields);
+        AuditHelper::log($db, 'project.update', 'project', $projectId, $oldValues, $newValues);
         ApiResponse::success(null, 'Project updated');
         break;
 

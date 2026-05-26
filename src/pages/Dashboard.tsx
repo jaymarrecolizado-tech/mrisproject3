@@ -9,6 +9,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { dailySummaries, regionStats } from '../data/mockData';
@@ -66,6 +67,7 @@ interface AuditEntry {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, hasPermission } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
@@ -73,7 +75,10 @@ export default function Dashboard() {
   const [regionData, setRegionData] = useState<RegionStat[]>([]);
   const [recentActivity, setRecentActivity] = useState<AuditEntry[]>([]);
   const [mySubmissions, setMySubmissions] = useState<Array<{ id: number; type: string; site_name: string; date: string; status: string }>>([]);
+  const [milestoneStats, setMilestoneStats] = useState<{ status_counts: Array<{ status: string; count: number }>; monthly_trend: Array<{ month: string; total: number; completed: number; in_progress: number }> } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState('');
 
   const isEncoder = user?.role === 'data_encoder';
   const isManager = user?.role === 'project_manager';
@@ -81,13 +86,21 @@ export default function Dashboard() {
   const isViewer = user?.role === 'viewer';
 
   useEffect(() => {
+    api.get<Array<{ region: string }>>('sites.regions').then(res => {
+      setRegions(res.data.map((r: { region: string }) => r.region));
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const regionParam = selectedRegion || undefined;
     Promise.all([
-      api.get<DashboardStats>('dashboard.stats'),
+      api.get<DashboardStats>('dashboard.stats', regionParam ? { region: regionParam } : {}),
       api.get<any[]>('dashboard.daily'),
       api.get<ProjectStats[]>('projects.stats'),
       api.get<RegionStat[]>('dashboard.regional'),
       api.get<any>('audit.list', { per_page: 8 }),
-    ]).then(([statsRes, dailyRes, projRes, regionRes, auditRes]) => {
+      api.get<{ status_counts: Array<{ status: string; count: number }>; monthly_trend: Array<{ month: string; total: number; completed: number; in_progress: number }> }>('dashboard.milestones').catch(() => ({ data: { status_counts: [], monthly_trend: [] } })),
+    ]).then(([statsRes, dailyRes, projRes, regionRes, auditRes, milestoneRes]) => {
       setStats(statsRes.data);
       // Map API snake_case format to the frontend's camelCase format
       const normalizedDailyData = dailyRes.data.map(d => ({
@@ -102,6 +115,7 @@ export default function Dashboard() {
       setProjectStats(projRes.data);
       setRegionData(regionRes.data);
       setRecentActivity(auditRes.data ?? []);
+      setMilestoneStats(milestoneRes.data);
       setIsLoading(false);
     }).catch(() => {
       setStats(null);
@@ -110,7 +124,7 @@ export default function Dashboard() {
       setRegionData([]);
       setIsLoading(false);
     });
-  }, []);
+  }, [selectedRegion]);
 
   // Load encoder-specific recent submissions
   useEffect(() => {
@@ -217,7 +231,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading dashboard...</p>
+          <p className="text-slate-400 dark:text-slate-500">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -227,20 +241,32 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <LayoutDashboard className="text-dict-blue" size={26} />
             {isAdmin ? 'Executive Dashboard' : isManager ? 'Project Overview' : isEncoder ? 'My Dashboard' : 'Dashboard'}
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             {isAdmin ? 'Real-time overview of all DICT Region 2 projects'
               : isManager ? 'Status of your assigned projects in Region 2'
               : isEncoder ? 'Your recent submissions and assigned project status'
               : 'DICT Region 2 project overview'}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-400">Last updated</p>
-          <p className="text-sm font-medium text-slate-700">{new Date().toLocaleString()}</p>
+        <div className="text-right flex flex-col items-end gap-2">
+          {regions.length > 0 && (
+            <select
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
+              className="px-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
+            >
+              <option value="">All Regions</option>
+              {regions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          )}
+          <div>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Last updated</p>
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{new Date().toLocaleString()}</p>
+          </div>
         </div>
       </div>
 
@@ -251,6 +277,7 @@ export default function Dashboard() {
           icon={<MapPin size={20} />}
           color="bg-blue-500"
           subtitle="Across all projects"
+          onClick={() => navigate('/map')}
         />
         <StatCard
           title="Sites Active / UP"
@@ -260,6 +287,7 @@ export default function Dashboard() {
           subtitle={`${displayData.total_sites > 0 ? ((displayData.active_sites / displayData.total_sites) * 100).toFixed(1) : 0}% uptime`}
           trend={upChange >= 0 ? 'up' : 'down'}
           trendValue={`${Math.abs(upChange)} from yesterday`}
+          onClick={() => navigate('/freewifi?status=UP')}
         />
         <StatCard
           title="Sites Down"
@@ -267,6 +295,7 @@ export default function Dashboard() {
           icon={<AlertCircle size={20} />}
           color="bg-red-500"
           subtitle={`${displayData.total_sites > 0 ? ((displayData.down_sites / displayData.total_sites) * 100).toFixed(1) : 0}% of total`}
+          onClick={() => navigate('/freewifi?status=DOWN')}
         />
         <StatCard
           title="Avg Completion"
@@ -274,6 +303,7 @@ export default function Dashboard() {
           icon={<CheckCircle2 size={20} />}
           color="bg-amber-500"
           subtitle="Milestone-based projects"
+          onClick={() => navigate('/dict-projects')}
         />
       </div>
 
@@ -282,14 +312,14 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
             <History size={18} className="text-dict-blue" />
             My Recent Submissions
           </h3>
           {mySubmissions.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-6">No submissions yet. Start by adding daily logs or project entries.</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No submissions yet. Start by adding daily logs or project entries.</p>
           ) : (
             <div className="divide-y divide-slate-50">
               {mySubmissions.map((item, idx) => (
@@ -300,15 +330,15 @@ export default function Dashboard() {
                     'bg-amber-500'
                   }`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 truncate">{item.site_name}</p>
-                    <p className="text-[10px] text-slate-400">{item.type}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-200 truncate">{item.site_name}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">{item.type}</p>
                   </div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     item.status === 'UP' || item.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' :
                     item.status === 'DOWN' || item.status === 'DELAYED' ? 'bg-red-50 text-red-700' :
                     'bg-amber-50 text-amber-700'
                   }`}>{item.status}</span>
-                  <span className="text-[10px] text-slate-400">{item.date}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{item.date}</span>
                 </div>
               ))}
             </div>
@@ -321,23 +351,23 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
             <CheckCircle2 size={18} className="text-dict-blue" />
             My Projects Status
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {projectStats.map((p) => (
-              <div key={p.id} className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+              <div key={p.id} className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 dark:border-slate-700 transition-colors">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-                  <span className="text-sm font-medium text-slate-700 truncate">{p.name}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{p.name}</span>
                 </div>
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mb-1.5">
                   <div className="h-full rounded-full transition-all" style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }} />
                 </div>
-                <div className="flex justify-between text-[10px] text-slate-400">
+                <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500">
                   <span>{p.completion_rate}% complete</span>
                   <span>{p.up_sites}/{p.total_sites} UP</span>
                 </div>
@@ -353,15 +383,15 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <Wifi size={18} className="text-fw-sky" />
                 Free WiFi — 30-Day Trend
               </h3>
-              <p className="text-xs text-slate-400">Daily UP vs DOWN site count</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">Daily UP vs DOWN site count</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> UP</span>
@@ -397,10 +427,10 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 mb-1">Today's Status</h3>
-          <p className="text-xs text-slate-400 mb-4">{new Date().toLocaleDateString()}</p>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Today's Status</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{new Date().toLocaleDateString()}</p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -440,9 +470,9 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 mb-4">Regional Breakdown</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Regional Breakdown</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={regionChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -461,55 +491,120 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 mb-4">Project Completion Rates</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Project Completion Rates</h3>
           <div className="space-y-4">
             {projectStats.filter(p => p.type === 'milestone').length > 0 ? projectStats.filter(p => p.type === 'milestone').map((p) => (
               <div key={p.id}>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                    <span className="font-medium text-slate-700">{p.name}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-200">{p.name}</span>
                   </span>
-                  <span className="text-slate-500">{p.completion_rate}%</span>
+                  <span className="text-slate-500 dark:text-slate-400">{p.completion_rate}%</span>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${p.completion_rate}%`, backgroundColor: p.color }}
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                   {p.up_sites} of {p.total_sites} sites completed
                 </p>
               </div>
             )) : (
-              <p className="text-sm text-slate-400 text-center py-8">No project data available</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No project data available</p>
             )}
           </div>
         </motion.div>
       </div>
+
+      {/* Milestone Charts — Admin & Manager */}
+      {(isAdmin || isManager) && milestoneStats && (milestoneStats.status_counts.length > 0 || milestoneStats.monthly_trend.length > 0) && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
+        >
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Milestone Status</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Distribution across all DICT projects</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={milestoneStats.status_counts.map(s => ({
+                  name: s.status.replace(/_/g, ' '),
+                  value: Number(s.count),
+                  color: s.status === 'COMPLETED' ? '#22c55e' : s.status === 'IN_PROGRESS' ? '#3b82f6' : s.status === 'DELAYED' ? '#ef4444' : '#8b5cf6'
+                }))}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {milestoneStats.status_counts.map((s, i) => (
+                  <Cell key={i} fill={s.status === 'COMPLETED' ? '#22c55e' : s.status === 'IN_PROGRESS' ? '#3b82f6' : s.status === 'DELAYED' ? '#ef4444' : '#8b5cf6'} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex flex-wrap gap-3 mt-2">
+            {milestoneStats.status_counts.map(s => (
+              <span key={s.status} className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.status === 'COMPLETED' ? '#22c55e' : s.status === 'IN_PROGRESS' ? '#3b82f6' : s.status === 'DELAYED' ? '#ef4444' : '#8b5cf6' }} />
+                {s.status.replace(/_/g, ' ')} ({s.count})
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
+        >
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Monthly Milestone Trend</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Completed vs in-progress (last 6 months)</p>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={milestoneStats.monthly_trend.map(m => ({ ...m, month: m.month.substring(5) }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
+              <YAxis stroke="#94a3b8" fontSize={11} />
+              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="completed" fill="#22c55e" name="Completed" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="in_progress" fill="#3b82f6" name="In Progress" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+      )}
 
       {/* Admin-specific: System Overview */}
       {isAdmin && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+          className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
         >
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
             <Users size={18} className="text-dict-blue" />
             System Overview
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center p-3 rounded-lg bg-slate-50">
-              <p className="text-2xl font-bold text-slate-800">{projectStats.length}</p>
-              <p className="text-xs text-slate-500 mt-1">Active Projects</p>
+            <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{projectStats.length}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Active Projects</p>
             </div>
-            <div className="text-center p-3 rounded-lg bg-slate-50">
-              <p className="text-2xl font-bold text-slate-800">{displayData.total_sites}</p>
-              <p className="text-xs text-slate-500 mt-1">Total Sites</p>
+            <div className="text-center p-3 rounded-lg bg-slate-50 dark:bg-slate-900">
+              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{displayData.total_sites}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total Sites</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-emerald-50">
               <p className="text-2xl font-bold text-emerald-700">{displayData.active_sites}</p>
@@ -528,14 +623,14 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+        className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
       >
-        <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
           <History size={18} className="text-dict-blue" />
           Recent Activity
         </h3>
         {recentActivity.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-6">No recent activity found.</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No recent activity found.</p>
         ) : (
           <div className="space-y-0 divide-y divide-slate-50">
             {recentActivity.map((entry) => {
@@ -544,11 +639,11 @@ export default function Dashboard() {
                 UPDATE: 'bg-blue-100 text-blue-700',
                 DELETE: 'bg-red-100 text-red-700',
                 LOGIN:  'bg-purple-100 text-purple-700',
-                LOGOUT: 'bg-slate-100 text-slate-600',
+                LOGOUT: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
                 IMPORT: 'bg-amber-100 text-amber-700',
                 EXPORT: 'bg-sky-100 text-sky-700',
               };
-              const color = actionColor[entry.action?.toUpperCase()] || 'bg-slate-100 text-slate-600';
+              const color = actionColor[entry.action?.toUpperCase()] || 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300';
               const timeAgo = (() => {
                 const diff = Math.floor((Date.now() - new Date(entry.created_at).getTime()) / 1000);
                 if (diff < 60) return `${diff}s ago`;
@@ -558,22 +653,22 @@ export default function Dashboard() {
               })();
               return (
                 <div key={entry.id} className="flex items-center gap-3 py-2.5">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <User size={14} className="text-slate-500" />
+                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                    <User size={14} className="text-slate-500 dark:text-slate-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 truncate">
+                    <p className="text-sm text-slate-700 dark:text-slate-200 truncate">
                       <span className="font-medium">{entry.user_name || 'System'}</span>
                       {' '}
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${color}`}>
                         {entry.action}
                       </span>
                       {' '}
-                      <span className="text-slate-500">{entry.entity_type?.replace(/_/g, ' ')}</span>
-                      {entry.entity_id ? <span className="text-slate-400"> #{entry.entity_id}</span> : null}
+                      <span className="text-slate-500 dark:text-slate-400">{entry.entity_type?.replace(/_/g, ' ')}</span>
+                      {entry.entity_id ? <span className="text-slate-400 dark:text-slate-500"> #{entry.entity_id}</span> : null}
                     </p>
                   </div>
-                  <span className="text-[10px] text-slate-400 flex-shrink-0 flex items-center gap-1">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0 flex items-center gap-1">
                     <Clock size={10} />{timeAgo}
                   </span>
                 </div>
@@ -611,21 +706,22 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, icon, color, subtitle, trend, trendValue }: {
+function StatCard({ title, value, icon, color, subtitle, trend, trendValue, onClick }: {
   title: string; value: string; icon: React.ReactNode; color: string;
-  subtitle: string; trend?: 'up' | 'down'; trendValue?: string;
+  subtitle: string; trend?: 'up' | 'down'; trendValue?: string; onClick?: () => void;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+      onClick={onClick}
+      className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">{title}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
-          <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide font-medium">{title}</p>
+          <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{value}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{subtitle}</p>
           {trend && trendValue && (
             <p className={`text-xs mt-2 flex items-center gap-1 ${trend === 'up' ? 'text-emerald-600' : 'text-red-500'}`}>
               {trend === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -646,13 +742,13 @@ function QuickStat({ icon, label, value, change, suffix, isPercent }: {
 }) {
   const isPositive = change >= 0;
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-4 shadow-sm">
-      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-4 shadow-sm">
+      <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
         {icon}
       </div>
       <div>
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-lg font-bold text-slate-800">{value}</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">{label}</p>
+        <p className="text-lg font-bold text-slate-800 dark:text-slate-100">{value}</p>
         <p className={`text-[11px] flex items-center gap-0.5 ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
           {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
           {isPercent ? `${change > 0 ? '+' : ''}${change.toFixed(1)}%` : `${change > 0 ? '+' : ''}${change.toLocaleString()}${suffix}`}
