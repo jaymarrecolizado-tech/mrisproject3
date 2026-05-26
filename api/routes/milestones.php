@@ -56,10 +56,10 @@ switch ($action) {
             'project_id' => (int) ($input['project_id'] ?? 0),
             'site_id' => !empty($input['site_id']) ? (int) $input['site_id'] : null,
             'title' => $input['title'] ?? '',
-            'target_date' => $input['target_date'] ?? null,
+            'target_date' => !empty($input['target_date']) ? $input['target_date'] : null,
             'actual_date' => !empty($input['actual_date']) ? $input['actual_date'] : null,
             'status' => $input['status'] ?? 'PENDING',
-            'description' => $input['description'] ?? null,
+            'description' => !empty($input['description']) ? $input['description'] : null,
         ];
         if (!$data['project_id'] || !$data['title']) {
             ApiResponse::error('Project ID and title required', 400);
@@ -82,7 +82,16 @@ switch ($action) {
         $fields = [];
         $allowed = ['title', 'target_date', 'actual_date', 'status', 'description', 'site_id'];
         foreach ($allowed as $f) {
-            if (isset($input[$f])) $fields[$f] = $input[$f];
+            if (isset($input[$f])) {
+                $val = $input[$f];
+                if (in_array($f, ['target_date', 'actual_date', 'description', 'site_id'], true) && $val === '') {
+                    $val = null;
+                }
+                if ($f === 'site_id' && $val !== null) {
+                    $val = (int)$val;
+                }
+                $fields[$f] = $val;
+            }
         }
         if (empty($fields)) {
             ApiResponse::error('No fields to update', 400);

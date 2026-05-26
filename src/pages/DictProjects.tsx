@@ -340,13 +340,28 @@ export default function DictProjects() {
 
         <div className="p-4 border-t border-slate-100 flex items-center justify-between">
           <p className="text-xs text-slate-500">
-            Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredSites.length)} of {filteredSites.length}
+            {filteredSites.length === 0
+              ? 'No results'
+              : `Showing ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, filteredSites.length)} of ${filteredSites.length}`}
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronLeft size={16} /></button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => (
-              <button key={i + 1} onClick={() => setCurrentPage(i + 1)} className={`w-8 h-8 rounded text-sm font-medium ${currentPage === i + 1 ? 'bg-dict-blue text-white' : 'hover:bg-slate-100 text-slate-600'}`}>{i + 1}</button>
-            ))}
+            {(() => {
+              const delta = 2;
+              const pages: (number | '...')[] = [];
+              for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+                  pages.push(i);
+                } else if (pages[pages.length - 1] !== '...') {
+                  pages.push('...');
+                }
+              }
+              return pages.map((page, idx) =>
+                page === '...'
+                  ? <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-sm">…</span>
+                  : <button key={page} onClick={() => setCurrentPage(page as number)} className={`w-8 h-8 rounded text-sm font-medium ${currentPage === page ? 'bg-dict-blue text-white' : 'hover:bg-slate-100 text-slate-600'}`}>{page}</button>
+              );
+            })()}
             <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded hover:bg-slate-100 disabled:opacity-30"><ChevronRight size={16} /></button>
           </div>
         </div>

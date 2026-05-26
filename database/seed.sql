@@ -93,12 +93,12 @@ SELECT 4, id FROM permissions WHERE slug IN (
 -- ============================================================
 
 INSERT INTO users (name, email, password_hash, role_id, department, is_active) VALUES
-('Admin User', 'admin@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, 'ICT Infrastructure', 1),
-('Maria Santos', 'maria.santos@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 2, 'Free WiFi Program', 1),
-('Juan Dela Cruz', 'juan.delacruz@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 2, 'DICT Projects', 1),
-('Ana Reyes', 'ana.reyes@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 3, 'Free WiFi Program', 1),
-('Pedro Garcia', 'pedro.garcia@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 3, 'DICT Projects', 1),
-('Luz Villanueva', 'luz.villanueva@dict.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 4, 'Management', 1);
+('Admin User', 'admin@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 1, 'ICT Infrastructure', 1),
+('Maria Santos', 'maria.santos@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 2, 'Free WiFi Program', 1),
+('Juan Dela Cruz', 'juan.delacruz@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 2, 'DICT Projects', 1),
+('Ana Reyes', 'ana.reyes@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 3, 'Free WiFi Program', 1),
+('Pedro Garcia', 'pedro.garcia@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 3, 'DICT Projects', 1),
+('Luz Villanueva', 'luz.villanueva@dict.gov.ph', '$2y$10$W4jg3bd3VzXaC22IcbGRiOCJRFMgeSDbKg06aLcp/GyU03yUTJ0Ne', 4, 'Management', 1);
 
 -- ============================================================
 -- 5. PROJECTS

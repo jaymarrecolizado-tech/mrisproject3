@@ -230,7 +230,7 @@ export default function FreeWifi() {
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
           <p className="text-xs text-slate-400 uppercase tracking-wide">Daily Users</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">
-            {dailySummaries[dailySummaries.length - 1]?.totalUsers.toLocaleString() ?? '0'}
+            {(trendData[trendData.length - 1]?.totalUsers ?? dailySummaries[dailySummaries.length - 1]?.totalUsers ?? 0).toLocaleString()}
           </p>
         </div>
       </div>

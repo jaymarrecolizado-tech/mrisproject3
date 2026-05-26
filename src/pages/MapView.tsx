@@ -67,6 +67,33 @@ const projectIcons: Record<string, React.ReactNode> = {
   gecs: <Radio size={14} />,
 };
 
+const projectMarkerColors = [
+  '#0f766e',
+  '#2563eb',
+  '#9333ea',
+  '#dc2626',
+  '#ca8a04',
+  '#16a34a',
+  '#0891b2',
+  '#db2777',
+  '#4f46e5',
+  '#ea580c',
+  '#475569',
+  '#65a30d',
+];
+
+function withUniqueProjectColors(projects: typeof mockProjects) {
+  return projects.map((project, index) => ({
+    ...project,
+    color: projectMarkerColors[index % projectMarkerColors.length],
+  }));
+}
+
+function formatCoordinate(value: number | string | null | undefined) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(4) : '-';
+}
+
 function apiSiteToSite(api: ApiSite): Site {
   return {
     id: String(api.id),
@@ -78,8 +105,8 @@ function apiSiteToSite(api: ApiSite): Site {
     islandGroup: api.island_group as any,
     district: api.district,
     municipality: api.municipality,
-    latitude: api.latitude,
-    longitude: api.longitude,
+    latitude: Number(api.latitude || 0),
+    longitude: Number(api.longitude || 0),
     status: api.status as any,
     ispProvider: api.isp_provider,
     bwDownload: api.bw_download,
@@ -193,7 +220,7 @@ function MapBounds({ sites }: { sites: Site[] }) {
 
   const fitBounds = useCallback(() => {
     if (sites.length === 0) return;
-    const bounds = L.latLngBounds(sites.map(s => [s.latitude, s.longitude]));
+    const bounds = L.latLngBounds(sites.map(s => [Number(s.latitude), Number(s.longitude)]));
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
   }, [map, sites]);
 
@@ -211,6 +238,7 @@ export default function MapView() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const [hoveredSite, setHoveredSite] = useState<Site | null>(null);
   const [showFilters, setShowFilters] = useState(true);
 
   useEffect(() => {
@@ -237,11 +265,13 @@ export default function MapView() {
     });
   }, []);
 
-  const projects = apiProjects.length > 0 ? apiProjects : mockProjects;
+  const sourceProjects = apiProjects.length > 0 ? apiProjects : mockProjects;
+  const projects = useMemo(() => withUniqueProjectColors(sourceProjects), [sourceProjects]);
   const sites = apiSites.length > 0 ? apiSites : mockSites;
 
   const filteredSites = useMemo(() => {
     return sites.filter(s => {
+      if (!Number.isFinite(Number(s.latitude)) || !Number.isFinite(Number(s.longitude))) return false;
       if (!selectedProjects.includes(s.projectId)) return false;
       if (statusFilter === 'all') return true;
       if (statusFilter === 'active') return ['UP', 'COMPLETED', 'ONGOING'].includes(s.status);
@@ -250,6 +280,16 @@ export default function MapView() {
       return s.status === statusFilter;
     });
   }, [selectedProjects, statusFilter, sites]);
+
+  const projectSiteCounts = useMemo(() => {
+    return sites.reduce<Record<string, number>>((counts, site) => {
+      if (!Number.isFinite(Number(site.latitude)) || !Number.isFinite(Number(site.longitude))) {
+        return counts;
+      }
+      counts[site.projectId] = (counts[site.projectId] || 0) + 1;
+      return counts;
+    }, {});
+  }, [sites]);
 
   const toggleProject = (id: string) => {
     setSelectedProjects(prev =>
@@ -272,6 +312,9 @@ export default function MapView() {
   }
 
   const clusterIconFn = createClusterIconFactory(projects);
+  const detailSite = selectedSite || hoveredSite;
+  const detailProject = detailSite ? projects.find(p => p.id === detailSite.projectId) : null;
+  const isHoverPreview = Boolean(hoveredSite && !selectedSite);
 
   return (
     <div className="h-[calc(100vh-7rem)] -m-4 lg:-m-6 relative">
@@ -369,9 +412,42 @@ export default function MapView() {
         </button>
       )}
 
+      {/* Project color legend */}
+      <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-xl border border-slate-200 shadow-lg w-72 max-h-64 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+            <Layers size={15} />
+            Project Legend
+          </h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">Marker colors are unique per project</p>
+        </div>
+        <div className="p-3 space-y-1.5 max-h-48 overflow-y-auto">
+          {projects.map(project => {
+            const isEnabled = selectedProjects.includes(project.id);
+            return (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => toggleProject(project.id)}
+                className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                  isEnabled ? 'hover:bg-slate-50' : 'opacity-45 hover:opacity-70 hover:bg-slate-50'
+                }`}
+              >
+                <span className="w-4 h-4 rounded-full border-2 border-white shadow-sm shrink-0" style={{ backgroundColor: project.color }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium text-slate-700 truncate">{project.name}</span>
+                  <span className="block text-[10px] text-slate-400 truncate">{project.fullName}</span>
+                </span>
+                <span className="text-[10px] text-slate-400">{projectSiteCounts[project.id] || 0}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Site Detail Panel */}
       <AnimatePresence>
-        {selectedSite && (
+        {detailSite && (
           <motion.div
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -380,39 +456,54 @@ export default function MapView() {
           >
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-slate-800 text-sm">{selectedSite.siteName}</h3>
-                <p className="text-xs text-slate-400">{selectedSite.siteCode}</p>
+                <h3 className="font-semibold text-slate-800 text-sm">{detailSite.siteName}</h3>
+                <p className="text-xs text-slate-400">{detailSite.siteCode}</p>
               </div>
-              <button onClick={() => setSelectedSite(null)} className="p-1 hover:bg-slate-100 rounded">
-                <X size={14} />
-              </button>
+              {isHoverPreview ? (
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Hover</span>
+              ) : (
+                <button onClick={() => setSelectedSite(null)} className="p-1 hover:bg-slate-100 rounded">
+                  <X size={14} />
+                </button>
+              )}
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center gap-2">
+                {detailProject && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ backgroundColor: detailProject.color }}
+                  >
+                    {projectIcons[detailProject.id] || projectIcons.fw}
+                    {detailProject.name}
+                  </span>
+                )}
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white uppercase ${
-                    selectedSite.status === 'UP' || selectedSite.status === 'COMPLETED' ? 'bg-emerald-500' :
-                    selectedSite.status === 'DOWN' ? 'bg-red-500' :
-                    selectedSite.status === 'ONGOING' ? 'bg-blue-500' :
+                    detailSite.status === 'UP' || detailSite.status === 'COMPLETED' ? 'bg-emerald-500' :
+                    detailSite.status === 'DOWN' ? 'bg-red-500' :
+                    detailSite.status === 'ONGOING' ? 'bg-blue-500' :
                     'bg-amber-500'
                   }`}
                 >
-                  {selectedSite.status}
+                  {detailSite.status}
                 </span>
-                <span className="text-xs text-slate-500">{selectedSite.nationwideId}</span>
               </div>
+              <p className="text-xs text-slate-500">{detailProject?.fullName || detailProject?.description}</p>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-slate-400">Location</span><span className="text-slate-700 text-right">{selectedSite.locationName}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Province</span><span className="text-slate-700">{selectedSite.province}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Island Group</span><span className="text-slate-700">{selectedSite.islandGroup}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">District</span><span className="text-slate-700">{selectedSite.district}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">ISP</span><span className="text-slate-700">{selectedSite.ispProvider}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Technology</span><span className="text-slate-700">{selectedSite.lastMileTech}</span></div>
-                {selectedSite.bwDownload > 0 && (
-                  <div className="flex justify-between"><span className="text-slate-400">BW Download</span><span className="text-slate-700">{selectedSite.bwDownload} Mbps</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Location</span><span className="text-slate-700 text-right">{detailSite.locationName}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Barangay</span><span className="text-slate-700 text-right">{detailSite.barangay || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Municipality</span><span className="text-slate-700 text-right">{detailSite.municipality || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Province</span><span className="text-slate-700">{detailSite.province}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Island Group</span><span className="text-slate-700">{detailSite.islandGroup}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">District</span><span className="text-slate-700">{detailSite.district}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">ISP</span><span className="text-slate-700">{detailSite.ispProvider || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Technology</span><span className="text-slate-700">{detailSite.lastMileTech || '-'}</span></div>
+                {detailSite.bwDownload > 0 && (
+                  <div className="flex justify-between"><span className="text-slate-400">BW Download</span><span className="text-slate-700">{detailSite.bwDownload} Mbps</span></div>
                 )}
-                <div className="flex justify-between"><span className="text-slate-400">Coordinates</span><span className="text-slate-700 text-[10px]">{selectedSite.latitude.toFixed(4)}, {selectedSite.longitude.toFixed(4)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Last Updated</span><span className="text-slate-700">{selectedSite.lastUpdated}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Coordinates</span><span className="text-slate-700 text-[10px]">{formatCoordinate(detailSite.latitude)}, {formatCoordinate(detailSite.longitude)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Last Updated</span><span className="text-slate-700">{detailSite.lastUpdated || '-'}</span></div>
               </div>
             </div>
           </motion.div>
@@ -443,10 +534,19 @@ export default function MapView() {
             return (
               <Marker
                 key={site.id}
-                position={[site.latitude, site.longitude]}
+                position={[Number(site.latitude), Number(site.longitude)]}
                 icon={createCustomIcon(site.status, project?.color || '#3b82f6')}
                 eventHandlers={{
-                  click: () => setSelectedSite(site),
+                  click: () => {
+                    setHoveredSite(null);
+                    setSelectedSite(site);
+                  },
+                  mouseover: () => setHoveredSite(site),
+                  mouseout: () => {
+                    if (!selectedSite) {
+                      setHoveredSite(current => current?.id === site.id ? null : current);
+                    }
+                  },
                 }}
                 // @ts-ignore — custom property for cluster icon coloring
                 projectId={site.projectId}

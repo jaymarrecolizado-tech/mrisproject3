@@ -71,26 +71,32 @@ switch ($action) {
             exit;
         }
 
-        $newId = $db->insert('users', [
-            'name' => $name,
-            'email' => $email,
-            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-            'role_id' => $roleId,
-            'phone' => $input['phone'] ?? null,
-            'department' => $input['department'] ?? null,
-        ]);
-
-        // Grant access to all projects for new users (admin can adjust later)
-        $projects = $db->fetchAll('SELECT id FROM projects WHERE is_active = 1');
-        foreach ($projects as $p) {
-            $db->insert('user_project_access', [
-                'user_id' => $newId,
-                'project_id' => $p['id'],
-                'access_level' => 'view',
+        $db->beginTransaction();
+        try {
+            $newId = $db->insert('users', [
+                'name' => $name,
+                'email' => $email,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'role_id' => $roleId,
+                'phone' => $input['phone'] ?? null,
+                'department' => $input['department'] ?? null,
             ]);
-        }
 
-        ApiResponse::success(['id' => $newId], 'User created', 201);
+            // Grant access to all projects for new users (admin can adjust later)
+            $projects = $db->fetchAll('SELECT id FROM projects WHERE is_active = 1');
+            foreach ($projects as $p) {
+                $db->insert('user_project_access', [
+                    'user_id' => $newId,
+                    'project_id' => $p['id'],
+                    'access_level' => 'view',
+                ]);
+            }
+            $db->commit();
+            ApiResponse::success(['id' => $newId], 'User created', 201);
+        } catch (Exception $e) {
+            $db->rollback();
+            ApiResponse::error('Failed to create user: ' . $e->getMessage(), 500);
+        }
         break;
 
     case 'users.update':
@@ -115,6 +121,13 @@ switch ($action) {
             ApiResponse::error('No fields to update', 400);
             exit;
         }
+        $currentUser = AuthMiddleware::getCurrentUser();
+        if ((int)$userId === (int)$currentUser['id']) {
+            if (isset($fields['is_active']) && !$fields['is_active']) {
+                ApiResponse::error('Cannot deactivate your own account', 400);
+                exit;
+            }
+        }
         $db->update('users', $fields, 'id = ?', [$userId]);
         ApiResponse::success(null, 'User updated');
         break;
@@ -127,6 +140,11 @@ switch ($action) {
         $userId = $id ?? $_GET['id'] ?? null;
         if (!$userId) {
             ApiResponse::error('User ID required', 400);
+            exit;
+        }
+        $currentUser = AuthMiddleware::getCurrentUser();
+        if ((int)$userId === (int)$currentUser['id']) {
+            ApiResponse::error('Cannot delete or deactivate your own account', 400);
             exit;
         }
         // Soft delete: deactivate

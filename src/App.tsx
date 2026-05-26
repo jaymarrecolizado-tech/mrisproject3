@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import LoginPage from './pages/auth/LoginPage';
 import Dashboard from './pages/Dashboard';
@@ -36,7 +37,19 @@ function PrivateRoutes() {
     <Layout>
       <Routes>
         <Route path="/" element={<ProtectedRoute requiredPermission="dashboard.view"><Dashboard /></ProtectedRoute>} />
-        <Route path="/map" element={<ProtectedRoute requiredPermission="map.view"><MapView /></ProtectedRoute>} />
+        <Route
+          path="/map"
+          element={
+            <ProtectedRoute requiredPermission="map.view">
+              <ErrorBoundary
+                title="Map could not be displayed"
+                message="The map hit a rendering problem. Check location coordinates and project data, then try again."
+              >
+                <MapView />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/freewifi" element={<ProtectedRoute requiredPermission="logs.view"><FreeWifi /></ProtectedRoute>} />
         <Route path="/dict-projects" element={<ProtectedRoute requiredPermission="projects.view"><DictProjects /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requiredPermission="users.manage"><UsersPage /></ProtectedRoute>} />
