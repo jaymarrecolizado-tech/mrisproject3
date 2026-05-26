@@ -12,8 +12,13 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
+// Load environment variables
+require_once __DIR__ . '/config/env.php';
+loadEnv();
+
 // CORS headers
-header('Access-Control-Allow-Origin: *');
+$corsOrigin = env('CORS_ORIGIN', '*');
+header("Access-Control-Allow-Origin: $corsOrigin");
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Allow-Credentials: true');
@@ -30,6 +35,10 @@ require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/helpers/JWT.php';
 require_once __DIR__ . '/helpers/ApiResponse.php';
 require_once __DIR__ . '/middleware/Auth.php';
+
+// Configure JWT from environment
+JWT::setSecret(env('JWT_SECRET'));
+JWT::setExpiry((int)env('JWT_EXPIRY', 86400));
 
 // Get action and method from query string or JSON body
 $action = $_GET['action'] ?? '';
