@@ -17,6 +17,9 @@ import RolesPage from './pages/Roles';
 import AuditTrail from './pages/AuditTrail';
 import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
+import { getRouterBasename } from './utils/appBase';
+
+const routerBasename = getRouterBasename();
 
 function PrivateRoutes() {
   const { user, isLoading } = useAuth();
@@ -71,7 +74,7 @@ export default function App() {
     <AuthProvider>
       <DarkModeProvider>
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={routerBasename}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/*" element={<PrivateRoutes />} />

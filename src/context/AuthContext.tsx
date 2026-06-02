@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api } from '../services/api';
+import { getAppBasePath } from '../utils/appBase';
 
 export interface User {
   id: number;
@@ -73,8 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('mris_user');
     setToken(null);
     setUser(null);
-    const base = document.querySelector('base')?.getAttribute('href') || '/';
-    window.location.href = `${base}login`;
+    window.location.href = `${getAppBasePath()}login`;
   };
 
   const hasPermission = useCallback(

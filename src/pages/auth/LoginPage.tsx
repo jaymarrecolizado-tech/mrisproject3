@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Wifi, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getAppBasePath } from '../../utils/appBase';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,7 +18,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      window.location.href = '/';
+      window.location.href = getAppBasePath();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

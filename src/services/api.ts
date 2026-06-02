@@ -1,4 +1,6 @@
-const API_BASE = '/api';
+import { getApiBasePath, getAppBasePath } from '../utils/appBase';
+
+const API_BASE = getApiBasePath();
 
 export interface ApiError {
   success: false;
@@ -68,8 +70,7 @@ async function request<T>(action: string, method: string = 'GET', body?: unknown
       localStorage.removeItem('mris_token');
       localStorage.removeItem('mris_user');
       sessionStorage.clear();
-      const base = document.querySelector('base')?.getAttribute('href') || '/';
-      window.location.href = `${base}login`;
+      window.location.href = `${getAppBasePath()}login`;
     }
     throw new Error(data.message || 'Request failed');
   }
