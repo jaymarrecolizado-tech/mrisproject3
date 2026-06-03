@@ -1,7 +1,7 @@
 # DICT MRIS — Remaining Tasks & QA Report
 
-> Last updated: 2026-05-24
-> Status: **Full system audit + all features & bug fixes completed.** All 8 bugs resolved, all 6 FEAT tasks implemented, TypeScript compiles clean, and API verification tests pass.
+> Last updated: 2026-06-03
+> Status: **Full system audit + all features & bug fixes completed.** All 8 bugs resolved, all 6 FEAT tasks implemented, TypeScript compiles clean, API verification tests pass, and `npm run build` is now gated on `tsc --noEmit` (build verified green 2026-06-03).
 
 ---
 
@@ -143,7 +143,7 @@
 - [ ] Move JWT secret to environment variable / `.env`
 - [ ] Set `CORS` origin to production domain only
 - [ ] Set `display_errors = Off` in `php.ini` / `.htaccess`
-- [ ] Run `npm run build` and deploy `dist/` files
+- [x] Run `npm run build` and deploy `dist/` files
 - [ ] Update `vite.config.ts` `base` path for subdirectory if needed
 - [ ] Import `database/schema.sql` into production MySQL
 - [ ] Run password-fix script on production DB

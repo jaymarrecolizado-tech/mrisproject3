@@ -246,5 +246,28 @@ DB_PASS=
 
 ---
 
+## 10. Follow-up (2026-06-03)
+
+This follow-up adds a TypeScript build-gate after the 2026-06-03 verification sweep (see §0 Verification Notes).
+
+### 10.1 Build gate
+
+- `package.json` `scripts.build` changed from `"vite build"` to `"tsc --noEmit && vite build"`; `npm run build` now fails fast on any TypeScript regression.
+- Post-edit `npx tsc --noEmit` → exit 0.
+- Post-edit `npm run build` → exit 0; Vite 7.3.2 + `vite-plugin-singlefile` 2.3.0 transformed 2883 modules; `dist/index.html` reports **1531.85 kB / gzip 451.31 kB**. Build output tee'd to `npm-build-current.log` (auto-ignored via `*.log`).
+
+### 10.2 Git delta for this commit
+
+- `package.json` (1 line: build-gate).
+- `findings.md` (this §10 appended).
+- `remaining.md` (status block refresh).
+- `tsc-check.log`, `tsc-check-current.log`, `npm-build.log`, `npm-build-current.log`, and `dist/` matched by `.gitignore`; not part of this commit.
+
+### 10.3 Out of scope (unchanged)
+
+- Production data leak: `src/data/mockData.ts` still bundled into `dist/` (§4 S-13, §7). Requires conditional import / dynamic chunking; deferred.
+- `findings.md` §1.1 row 1 still says `JWT::$secret hardcoded fallback remains` even though §0 L23 marks S-1 closed. Cosmetic; deferred.
+- No CI integration this pass; build-gate is local-only.
+
 *End of findings. See `audit-report/audit-report.md` for the prior 2026-06-01 audit; this document supplements rather than replaces it.*
 
