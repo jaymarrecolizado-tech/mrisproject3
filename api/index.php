@@ -16,6 +16,8 @@ ini_set('log_errors', 1);
 require_once __DIR__ . '/config/env.php';
 loadEnv();
 
+require_once __DIR__ . '/helpers/ApiResponse.php';
+
 // CORS headers
 $corsOrigin = env('CORS_ORIGIN');
 if ($corsOrigin === null || $corsOrigin === '' || $corsOrigin === '*') {
@@ -51,7 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Autoload
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/helpers/JWT.php';
-require_once __DIR__ . '/helpers/ApiResponse.php';
 require_once __DIR__ . '/helpers/RateLimiter.php';
 require_once __DIR__ . '/middleware/Auth.php';
 
