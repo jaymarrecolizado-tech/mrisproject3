@@ -17,11 +17,29 @@ require_once __DIR__ . '/config/env.php';
 loadEnv();
 
 // CORS headers
-$corsOrigin = env('CORS_ORIGIN', '*');
-header("Access-Control-Allow-Origin: $corsOrigin");
+$corsOrigin = env('CORS_ORIGIN');
+if ($corsOrigin === null || $corsOrigin === '' || $corsOrigin === '*') {
+    error_log('[CORS] CORS_ORIGIN is not configured or set to wildcard in .env');
+    ApiResponse::error('Server configuration error', 500);
+    exit;
+}
+$allowCredentials = true;
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($origin !== '') {
+    $allowedOrigins = array_map('trim', explode(',', $corsOrigin));
+    if (in_array($origin, $allowedOrigins, true)) {
+        header("Access-Control-Allow-Origin: $origin");
+        header('Access-Control-Allow-Credentials: true');
+    } else {
+        http_response_code(403);
+        ApiResponse::error('Origin not allowed', 403);
+        exit;
+    }
+} else {
+    header('Access-Control-Allow-Credentials: false');
+}
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
-header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Max-Age: 86400');
 
 // Handle preflight
@@ -34,10 +52,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/helpers/JWT.php';
 require_once __DIR__ . '/helpers/ApiResponse.php';
+require_once __DIR__ . '/helpers/RateLimiter.php';
 require_once __DIR__ . '/middleware/Auth.php';
 
 // Configure JWT from environment
-JWT::setSecret(env('JWT_SECRET'));
+$jwtSecret = env('JWT_SECRET');
+if (empty($jwtSecret)) {
+    error_log('[JWT] JWT_SECRET is not configured in .env');
+    ApiResponse::error('Server configuration error', 500);
+    exit;
+}
+JWT::setSecret($jwtSecret);
 JWT::setExpiry((int)env('JWT_EXPIRY', 86400));
 
 // Get action and method from query string or JSON body
@@ -168,5 +193,14 @@ if (!file_exists(__DIR__ . '/' . $routeFile)) {
     exit;
 }
 
-// Dispatch
+// Brute-force hardening: throttle public auth endpoints per request IP
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+if ($routeKey === 'auth.login' && !RateLimiter::check($ip, 5, 900)) {
+    ApiResponse::error('Too many login attempts. Please try again later.', 429);
+    exit;
+} elseif (!in_array($expectedMethod, ['GET', 'OPTIONS'], true) && !RateLimiter::check($ip, 60, 60)) {
+    ApiResponse::error('Too many requests', 429);
+    exit;
+}
+
 require_once __DIR__ . '/' . $routeFile;

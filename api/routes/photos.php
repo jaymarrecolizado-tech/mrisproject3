@@ -45,8 +45,15 @@ switch ($action) {
             exit;
         }
 
-        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = 'site_' . $siteId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        if (!in_array($ext, $allowedExtensions)) {
+            ApiResponse::error('Only JPEG, PNG, WebP, and GIF images are allowed', 400);
+            exit;
+        }
+
+        $filename = 'site_' . $siteId . '_' . time() . '_' . bin2hex(random_bytes(16)) . '.' . $ext;
         $filepath = $uploadDir . $filename;
 
         if (!move_uploaded_file($file['tmp_name'], $filepath)) {
@@ -59,7 +66,7 @@ switch ($action) {
         $photoId = $db->insert('site_photos', [
             'site_id'     => $siteId,
             'file_path'   => 'uploads/site_photos/' . $filename,
-            'file_name'   => $file['name'],
+            'file_name'   => $filename,
             'file_size'   => $file['size'],
             'mime_type'   => $file['type'],
             'caption'     => $caption,

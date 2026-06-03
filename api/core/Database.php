@@ -48,7 +48,13 @@ class Database {
         return $this->query($sql, $params)->fetchColumn();
     }
 
-    public function insert(string $table, array $data): int {
+    public function insert(string $table, array $data): int
+    {
+        foreach ($data as $k => $v) {
+            if (is_array($v)) {
+                $data[$k] = json_encode($v, JSON_UNESCAPED_UNICODE);
+            }
+        }
         $columns = implode(', ', array_keys($data));
         $placeholders = ':' . implode(', :', array_keys($data));
         $sql = "INSERT INTO {$table} ({$columns}) VALUES ({$placeholders})";

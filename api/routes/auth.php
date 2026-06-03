@@ -5,6 +5,8 @@
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
+require_once __DIR__ . '/../helpers/PasswordValidator.php';
+
 switch ($action) {
 
     case 'auth.login':
@@ -13,6 +15,11 @@ switch ($action) {
 
         if (!$email || !$password) {
             ApiResponse::error('Email and password are required', 400);
+            exit;
+        }
+
+        if (!RateLimiter::check($email, 5, 900)) {
+            ApiResponse::error('Too many login attempts. Please try again later.', 429);
             exit;
         }
 
@@ -36,10 +43,14 @@ switch ($action) {
             exit;
         }
 
+        RateLimiter::reset($email);
+
         if (!$user['is_active']) {
             ApiResponse::error('Account is disabled', 403);
             exit;
         }
+
+        RateLimiter::reset($email);
 
         // Update last login
         $db->update('users', ['last_login_at' => date('Y-m-d H:i:s')], 'id = ?', [$user['id']]);
@@ -54,11 +65,12 @@ switch ($action) {
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
         ]);
 
-        // Generate JWT
-        $token = JWT::encode([
+        // Generate JWT with token_version for revocation
+        $jwt = JWT::encode([
             'sub' => $user['id'],
             'email' => $user['email'],
             'role' => $user['role_slug'],
+            'token_version' => (int)($user['token_version'] ?? 0),
         ]);
 
         // Load permissions
@@ -82,7 +94,7 @@ switch ($action) {
         unset($user['password_hash']);
 
         ApiResponse::success([
-            'token' => $token,
+            'token' => $jwt['token'],
             'user' => [
                 'id' => (int) $user['id'],
                 'name' => $user['name'],
@@ -128,28 +140,19 @@ switch ($action) {
 
     case 'auth.refresh':
         $user = AuthMiddleware::authenticate();
-        $token = JWT::encode([
+        $jwt = JWT::encode([
             'sub' => $user['id'],
             'email' => $user['email'],
             'role' => $user['role_slug'],
+            'token_version' => (int)($user['token_version'] ?? 0),
         ]);
-        ApiResponse::success(['token' => $token], 'Token refreshed');
+        ApiResponse::success(['token' => $jwt['token']], 'Token refreshed');
         break;
 
     case 'auth.change-password':
         $user = AuthMiddleware::authenticate();
         $currentPassword = $input['current_password'] ?? '';
         $newPassword = $input['new_password'] ?? '';
-
-        if (!$currentPassword || !$newPassword) {
-            ApiResponse::error('Current and new password are required', 400);
-            exit;
-        }
-
-        if (strlen($newPassword) < 8) {
-            ApiResponse::error('New password must be at least 8 characters', 400);
-            exit;
-        }
 
         $db = Database::getInstance();
         $stored = $db->fetchColumn('SELECT password_hash FROM users WHERE id = ?', [$user['id']]);
@@ -159,7 +162,16 @@ switch ($action) {
             exit;
         }
 
+        try {
+            PasswordValidator::validate($newPassword);
+        } catch (\InvalidArgumentException $e) {
+            ApiResponse::error($e->getMessage(), 400);
+            exit;
+        }
+
         $db->update('users', ['password_hash' => password_hash($newPassword, PASSWORD_DEFAULT)], 'id = ?', [$user['id']]);
+
+        $db->update('users', ['token_version' => $user['token_version'] + 1], 'id = ?', [$user['id']]);
 
         $db->insert('audit_logs', [
             'user_id' => $user['id'],

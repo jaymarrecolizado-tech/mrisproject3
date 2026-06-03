@@ -547,7 +547,7 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
           )}
         </div>
         <div className="px-6 pb-6">
-          <SitePhotos siteId={site.id} canEdit={hasPermission('sites.edit')} />
+          <SitePhotos siteId={site.id} canEdit />
         </div>
       </motion.div>
     </motion.div>

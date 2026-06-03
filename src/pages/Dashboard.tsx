@@ -68,7 +68,7 @@ interface AuditEntry {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, hasPermission } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [dailyData, setDailyData] = useState<DailySummary[]>([]);
   const [projectStats, setProjectStats] = useState<ProjectStats[]>([]);
@@ -83,7 +83,6 @@ export default function Dashboard() {
   const isEncoder = user?.role === 'data_encoder';
   const isManager = user?.role === 'project_manager';
   const isAdmin = user?.role === 'super_admin';
-  const isViewer = user?.role === 'viewer';
 
   useEffect(() => {
     api.get<Array<{ region: string }>>('sites.regions').then(res => {

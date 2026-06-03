@@ -37,7 +37,7 @@ class AuthMiddleware {
 
         $db = Database::getInstance();
         $user = $db->fetchOne(
-            'SELECT u.id, u.name, u.email, u.role_id, u.department, u.is_active, r.slug as role_slug, r.name as role_name
+            'SELECT u.id, u.name, u.email, u.role_id, u.department, u.is_active, u.token_version, r.slug as role_slug, r.name as role_name
              FROM users u
              JOIN roles r ON r.id = u.role_id
              WHERE u.id = ?',
@@ -47,6 +47,12 @@ class AuthMiddleware {
         if (!$user || !$user['is_active']) {
             http_response_code(401);
             self::json(['error' => 'Unauthorized', 'message' => 'User not found or inactive']);
+            exit;
+        }
+
+        if (isset($payload['token_version']) && $payload['token_version'] !== (int)($user['token_version'] ?? 0)) {
+            http_response_code(401);
+            self::json(['error' => 'Unauthorized', 'message' => 'Token revoked']);
             exit;
         }
 

@@ -150,178 +150,62 @@ INSERT INTO sites (project_id, site_code, location_name, site_name, municipality
 -- Get site IDs for Region 2 Free WiFi sites (assuming they were just inserted)
 -- Site IDs will be auto-incremented. We use subqueries to find them.
 
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 65.00, 180, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 6 DAY, 'UP', 65.00, 180, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 5 DAY, 'UP', 70.20, 210, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 4 DAY, 'UP', 68.50, 195, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 3 DAY, 'UP', 72.00, 220, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 2 DAY, 'UP', 74.30, 235, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE() - INTERVAL 1 DAY, 'UP', 69.80, 200, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-BTN-001'), CURDATE(), 'UP', 71.50, 215, NULL, 4);
 
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 70.20, 210, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 6 DAY, 'UP', 85.00, 520, 'High traffic', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 5 DAY, 'UP', 88.50, 580, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 4 DAY, 'UP', 82.10, 490, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 3 DAY, 'UP', 90.00, 610, 'Peak usage', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 2 DAY, 'UP', 87.50, 560, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE() - INTERVAL 1 DAY, 'UP', 84.00, 500, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-001'), CURDATE(), 'UP', 91.00, 630, 'Near capacity', 4);
 
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 68.50, 195, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'UP', 72.00, 220, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'UP', 74.30, 235, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'UP', 69.80, 200, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'UP', 71.50, 215, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-BTN-001' AND s.project_id = 1;
-
--- Tuguegarao City Hall (high traffic)
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 85.00, 520, 'High traffic', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 88.50, 580, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 82.10, 490, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'UP', 90.00, 610, 'Peak usage', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'UP', 87.50, 560, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'UP', 84.00, 500, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'UP', 91.00, 630, 'Near capacity', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-001' AND s.project_id = 1;
-
--- Aparri Port (went down recently)
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 45.00, 120, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 48.20, 135, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 42.00, 110, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'DOWN', 0.00, 0, 'Equipment failure', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'DOWN', 0.00, 0, 'Waiting for replacement', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'DOWN', 0.00, 0, 'Still down', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'DOWN', 0.00, 0, 'Escalated to Globe', 4
-FROM sites s WHERE s.site_code = 'FW-R02-CAG-006' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 6 DAY, 'UP', 45.00, 120, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 5 DAY, 'UP', 48.20, 135, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 4 DAY, 'UP', 42.00, 110, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 3 DAY, 'DOWN', 0.00, 0, 'Equipment failure', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 2 DAY, 'DOWN', 0.00, 0, 'Waiting for replacement', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE() - INTERVAL 1 DAY, 'DOWN', 0.00, 0, 'Still down', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-CAG-006'), CURDATE(), 'DOWN', 0.00, 0, 'Escalated to Globe', 4);
 
 -- Ilagan City Hall
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 72.00, 340, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 75.50, 380, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 70.00, 310, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'UP', 78.00, 400, 'High traffic', 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'UP', 74.50, 360, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'UP', 71.00, 330, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'UP', 76.00, 370, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-ISA-001' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 6 DAY, 'UP', 72.00, 340, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 5 DAY, 'UP', 75.50, 380, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 4 DAY, 'UP', 70.00, 310, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 3 DAY, 'UP', 78.00, 400, 'High traffic', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 2 DAY, 'UP', 74.50, 360, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE() - INTERVAL 1 DAY, 'UP', 71.00, 330, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-ISA-001'), CURDATE(), 'UP', 76.00, 370, NULL, 4);
 
 -- Bayombong (went down recently)
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 55.00, 200, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 58.20, 220, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 52.00, 190, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'UP', 60.00, 240, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'DOWN', 0.00, 0, 'Power outage', 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'DOWN', 0.00, 0, 'Generator running, no connectivity', 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'DOWN', 0.00, 0, 'ISP fiber cut', 4
-FROM sites s WHERE s.site_code = 'FW-R02-NVZ-006' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 6 DAY, 'UP', 55.00, 200, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 5 DAY, 'UP', 58.20, 220, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 4 DAY, 'UP', 52.00, 190, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 3 DAY, 'UP', 60.00, 240, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 2 DAY, 'DOWN', 0.00, 0, 'Power outage', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE() - INTERVAL 1 DAY, 'DOWN', 0.00, 0, 'Generator running, no connectivity', 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-NVZ-006'), CURDATE(), 'DOWN', 0.00, 0, 'ISP fiber cut', 4);
 
 -- Cabarroguis (Quirino)
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 6 DAY, 'UP', 40.00, 150, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 5 DAY, 'UP', 42.50, 165, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 4 DAY, 'UP', 38.00, 140, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 3 DAY, 'UP', 45.00, 180, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 2 DAY, 'UP', 43.50, 170, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE() - INTERVAL 1 DAY, 'UP', 41.00, 155, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
-
-INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by)
-SELECT s.id, CURDATE(), 'UP', 44.00, 175, NULL, 4
-FROM sites s WHERE s.site_code = 'FW-R02-QRN-001' AND s.project_id = 1;
+INSERT INTO free_wifi_daily_logs (site_id, log_date, status, bandwidth_utilization, total_unique_users, remarks, logged_by) VALUES
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 6 DAY, 'UP', 40.00, 150, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 5 DAY, 'UP', 42.50, 165, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 4 DAY, 'UP', 38.00, 140, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 3 DAY, 'UP', 45.00, 180, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 2 DAY, 'UP', 43.50, 170, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE() - INTERVAL 1 DAY, 'UP', 41.00, 155, NULL, 4),
+((SELECT id FROM sites WHERE site_code = 'FW-R02-QRN-001'), CURDATE(), 'UP', 44.00, 175, NULL, 4);
 
 -- ============================================================
 -- 5. REGION 2 MILESTONES & ENTRIES (PNPKI R2 focus)

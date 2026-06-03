@@ -7,16 +7,20 @@ class AuditHelper
     public static function log(Database $db, string $action, string $entityType, ?int $entityId = null, ?array $oldValues = null, ?array $newValues = null): void
     {
         $user = AuthMiddleware::getCurrentUser();
-        $db->insert('audit_logs', [
-            'user_id'     => $user['id'] ?? null,
-            'action'      => $action,
-            'entity_type' => $entityType,
-            'entity_id'   => $entityId,
-            'old_values'  => $oldValues !== null ? json_encode($oldValues) : null,
-            'new_values'  => $newValues !== null ? json_encode($newValues) : null,
-            'ip_address'  => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-            'user_agent'  => $_SERVER['HTTP_USER_AGENT'] ?? null,
-        ]);
+        try {
+            $db->insert('audit_logs', [
+                'user_id'     => $user['id'] ?? null,
+                'action'      => $action,
+                'entity_type' => $entityType,
+                'entity_id'   => $entityId,
+                'old_values'  => $oldValues !== null ? json_encode($oldValues) : null,
+                'new_values'  => $newValues !== null ? json_encode($newValues) : null,
+                'ip_address'  => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                'user_agent'  => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            error_log("[audit] Failed to log action={$action} entity={$entityType}#{$entityId}: " . $e->getMessage());
+        }
     }
 
     public static function diff(array $oldRow, array $newData): array

@@ -91,17 +91,6 @@ export default function AuditTrail() {
     return new Date(dateStr).toLocaleString();
   }
 
-  function truncate(str: string | null, maxLen: number) {
-    if (!str) return '—';
-    try {
-      const parsed = JSON.parse(str);
-      const text = JSON.stringify(parsed);
-      return text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
-    } catch {
-      return str.length > maxLen ? str.slice(0, maxLen) + '...' : str;
-    }
-  }
-
   const totalPages = Math.ceil(total / perPage);
   const entityTypes = ['user', 'project', 'site', 'log', 'milestone', 'role', 'permission'];
 

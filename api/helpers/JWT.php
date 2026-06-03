@@ -5,10 +5,17 @@
  */
 
 class JWT {
-    private static string $secret = 'dict-mris-jwt-secret-change-in-production-2026';
+    private static string $secret;
     private static int $expiry = 86400; // 24 hours
 
     public static function setSecret(string $secret): void {
+        $normalized = strtolower(trim($secret));
+        if ($normalized === '' || $normalized === 'dict-mris-jwt-secret-change-in-production-2026') {
+            throw new \RuntimeException(
+                'JWT_SECRET is not set or still using the default value. ' .
+                'Set a strong, unique secret in the .env file.'
+            );
+        }
         self::$secret = $secret;
     }
 
@@ -16,13 +23,18 @@ class JWT {
         self::$expiry = $seconds;
     }
 
-    public static function encode(array $payload): string {
-        $header = self::base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
+    public static function encode(array $payload): array {
+        if (empty(self::$secret)) {
+            throw new \RuntimeException('JWT secret not configured');
+        }
+        $tokenVersion = $payload['token_version'] ?? 0;
+        unset($payload['token_version']);
         $payload['iat'] = time();
         $payload['exp'] = time() + self::$expiry;
+        $header = self::base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
         $payload = self::base64UrlEncode(json_encode($payload));
         $signature = self::sign("{$header}.{$payload}");
-        return "{$header}.{$payload}.{$signature}";
+        return ['token' => "{$header}.{$payload}.{$signature}", 'token_version' => $tokenVersion];
     }
 
     public static function decode(string $token): array|false {

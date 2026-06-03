@@ -7,6 +7,34 @@ import * as XLSX from 'xlsx';
 import { api } from '../services/api';
 import { projects } from '../data/mockData';
 
+const printStyles = `
+@media print {
+  body * { visibility: hidden; }
+  #printable-report, #printable-report * { visibility: visible; }
+  #printable-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+    color: black;
+    padding: 2rem;
+  }
+  #printable-report .no-print { display: none !important; }
+  #printable-report table { width: 100%; border-collapse: collapse; }
+  #printable-report th, #printable-report td { border: 1px solid #333; padding: 8px; text-align: left; }
+  #printable-report th { background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print { display: none !important; }
+  @page { margin: 1.5cm; size: A4; }
+}`;
+
+if (typeof document !== 'undefined' && !document.getElementById('print-styles')) {
+  const style = document.createElement('style');
+  style.id = 'print-styles';
+  style.textContent = printStyles;
+  document.head.appendChild(style);
+}
+
 const reportTypes = [
   { id: 'daily_status', name: 'Daily Site Status Report', desc: 'UP/DOWN summary for all sites per day', applicable: ['fw'] },
   { id: 'weekly_summary', name: 'Weekly Performance Summary', desc: 'Aggregated weekly metrics with trends', applicable: ['fw'] },

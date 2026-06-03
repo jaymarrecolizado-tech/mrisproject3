@@ -67,6 +67,13 @@ switch ($action) {
             exit;
         }
 
+        try {
+            PasswordValidator::validate($password);
+        } catch (\InvalidArgumentException $e) {
+            ApiResponse::error($e->getMessage(), 400);
+            exit;
+        }
+
         $existing = $db->fetchColumn('SELECT id FROM users WHERE email = ?', [$email]);
         if ($existing) {
             ApiResponse::error('Email already exists', 409);
@@ -117,6 +124,12 @@ switch ($action) {
             if (isset($input[$f])) $fields[$f] = $input[$f];
         }
         if (!empty($input['password'])) {
+            try {
+                PasswordValidator::validate($input['password']);
+            } catch (\InvalidArgumentException $e) {
+                ApiResponse::error($e->getMessage(), 400);
+                exit;
+            }
             $fields['password_hash'] = password_hash($input['password'], PASSWORD_DEFAULT);
         }
         if (empty($fields)) {
