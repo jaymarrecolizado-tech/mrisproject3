@@ -24,17 +24,19 @@ switch ($action) {
         $offset = ($page - 1) * $perPage;
 
         $total = $db->fetchColumn('SELECT COUNT(*) FROM generated_reports');
-        $reports = $db->fetchAll(
+        $reports = $db->paginate(
             'SELECT gr.*, u.name as generated_by_name
              FROM generated_reports gr
              LEFT JOIN users u ON u.id = gr.generated_by
-             ORDER BY gr.created_at DESC
-             LIMIT ? OFFSET ?',
-            [$perPage, $offset]
+             ORDER BY gr.created_at DESC',
+            [],
+            $perPage,
+            $offset
         );
 
         ApiResponse::paginated($reports, (int) $total, $page, $perPage);
         break;
+
 
     case 'reports.generate':
         if (!AuthMiddleware::hasPermission('reports.generate')) {

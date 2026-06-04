@@ -56,18 +56,20 @@ switch ($action) {
 
         $total = $db->fetchColumn("SELECT COUNT(*) FROM sites s WHERE {$whereClause}", $params);
 
-        $sites = $db->fetchAll(
+        $sites = $db->paginate(
             "SELECT s.*, p.code as project_code, p.name as project_name, p.color as project_color
              FROM sites s
              JOIN projects p ON p.id = s.project_id
              WHERE {$whereClause}
-             ORDER BY s.site_code
-             LIMIT ? OFFSET ?",
-            array_merge($params, [$perPage, $offset])
+             ORDER BY s.site_code",
+            $params,
+            $perPage,
+            $offset
         );
 
         ApiResponse::paginated($sites, (int) $total, $page, $perPage);
         break;
+
 
     case 'sites.get':
         $siteId = $id ?? $_GET['id'] ?? null;

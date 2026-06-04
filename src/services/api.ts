@@ -118,15 +118,30 @@ export const api = {
     return data as ApiSuccess<T>;
   },
 
-  download: async (action: string, filename: string, params?: Record<string, string | number | null>) => {
-    const url = buildUrl(action, params);
+  download: async (action: string, filename: string, params?: Record<string, unknown>, method: 'GET' | 'POST' = 'GET') => {
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, { headers });
+    let url: string;
+    let fetchOptions: RequestInit;
+
+    if (method === 'POST') {
+      url = buildUrl(action);
+      headers['Content-Type'] = 'application/json';
+      fetchOptions = {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(params ?? {}),
+      };
+    } else {
+      url = buildUrl(action, params as Record<string, string | number | null> | undefined);
+      fetchOptions = { method: 'GET', headers };
+    }
+
+    const response = await fetch(url, fetchOptions);
     if (!response.ok) {
       const data = await response.json().catch(() => null);
       throw new Error(data?.message || 'Download failed');
@@ -141,4 +156,5 @@ export const api = {
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
   },
+
 };

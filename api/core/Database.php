@@ -37,7 +37,24 @@ class Database {
     }
 
     public function fetchAll(string $sql, array $params = []): array {
-        return $this->query($sql, $params)->fetchAll();
+        return $this->query($sql, $params)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Paginated fetch: binds LIMIT and OFFSET as integers (PARAM_INT) to avoid
+     * MySQL "LIMIT '5' OFFSET '0'" syntax error that occurs when integers are
+     * passed through PDO emulation as strings.
+     */
+    public function paginate(string $sql, array $params, int $limit, int $offset): array {
+        $stmt = $this->pdo->prepare($sql . ' LIMIT :_limit OFFSET :_offset');
+        // Bind filter params positionally first
+        foreach ($params as $i => $value) {
+            $stmt->bindValue($i + 1, $value);
+        }
+        $stmt->bindValue(':_limit',  $limit,  PDO::PARAM_INT);
+        $stmt->bindValue(':_offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function fetchOne(string $sql, array $params = []): array|false {

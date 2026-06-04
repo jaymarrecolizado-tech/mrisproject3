@@ -36,7 +36,7 @@ switch ($action) {
         $whereClause = implode(' AND ', $where);
         $total = $db->fetchColumn("SELECT COUNT(*) FROM dict_project_entries e WHERE {$whereClause}", $params);
 
-        $entries = $db->fetchAll(
+        $entries = $db->paginate(
             "SELECT e.*, s.site_code, s.location_name, s.province,
                     p.code as project_code, p.name as project_name,
                     u.name as updated_by_name
@@ -45,9 +45,10 @@ switch ($action) {
              JOIN projects p ON p.id = e.project_id
              LEFT JOIN users u ON u.id = e.updated_by
              WHERE {$whereClause}
-             ORDER BY e.entry_date DESC
-             LIMIT ? OFFSET ?",
-            array_merge($params, [$perPage, $offset])
+             ORDER BY e.entry_date DESC",
+            $params,
+            $perPage,
+            $offset
         );
 
         ApiResponse::paginated($entries, (int) $total, $page, $perPage);

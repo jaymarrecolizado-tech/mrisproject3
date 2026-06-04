@@ -45,14 +45,16 @@ if (!empty($_GET['date_to'])) {
 $whereClause = implode(' AND ', $where);
 $total = $db->fetchColumn("SELECT COUNT(*) FROM audit_logs a WHERE {$whereClause}", $params);
 
-$logs = $db->fetchAll(
+$logs = $db->paginate(
     "SELECT a.*, u.name as user_name, u.email as user_email
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.user_id
      WHERE {$whereClause}
-     ORDER BY a.created_at DESC
-     LIMIT ? OFFSET ?",
-    array_merge($params, [$perPage, $offset])
+     ORDER BY a.created_at DESC",
+    $params,
+    $perPage,
+    $offset
 );
 
 ApiResponse::paginated($logs, (int) $total, $page, $perPage);
+

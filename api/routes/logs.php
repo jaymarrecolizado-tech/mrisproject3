@@ -40,7 +40,7 @@ switch ($action) {
         $whereClause = implode(' AND ', $where);
         $total = $db->fetchColumn("SELECT COUNT(*) FROM free_wifi_daily_logs l WHERE {$whereClause}", $params);
 
-        $logs = $db->fetchAll(
+        $logs = $db->paginate(
             "SELECT l.*, s.site_code, s.location_name, s.province, s.municipality,
                     p.code as project_code, p.name as project_name,
                     u.name as logged_by_name
@@ -49,13 +49,15 @@ switch ($action) {
              JOIN projects p ON p.id = s.project_id
              LEFT JOIN users u ON u.id = l.logged_by
              WHERE {$whereClause}
-             ORDER BY l.log_date DESC, l.site_id
-             LIMIT ? OFFSET ?",
-            array_merge($params, [$perPage, $offset])
+             ORDER BY l.log_date DESC, l.site_id",
+            $params,
+            $perPage,
+            $offset
         );
 
         ApiResponse::paginated($logs, (int) $total, $page, $perPage);
         break;
+
 
     case 'logs.get':
         $logId = $id ?? $_GET['id'] ?? null;

@@ -126,6 +126,7 @@ export default function Reports() {
     try {
       const params: Record<string, unknown> = {
         report_type: selectedType,
+        format: format,
         project_id: selectedProject || null,
         date_from: dateFrom || null,
         date_to: dateTo || null,
@@ -138,16 +139,16 @@ export default function Reports() {
 
       if (format === 'CSV') {
         const filename = `${selectedType}_${new Date().toISOString().split('T')[0]}.csv`;
-        await api.download('reports.generate', filename, { ...params, format: 'CSV' });
+        await api.download('reports.generate', filename, params, 'POST');
         setGenerated(true);
         loadRecentReports();
       } else if (format === 'PDF') {
-        await api.download('reports.generate', `${selectedType}.pdf`, { ...params, format: 'PDF' });
+        await api.download('reports.generate', `${selectedType}_${new Date().toISOString().split('T')[0]}.pdf`, params, 'POST');
         setGenerated(true);
         loadRecentReports();
       } else if (format === 'XLSX') {
         // XLSX: get JSON data and convert client-side
-        const res = await api.post<{ data: Record<string, unknown>[] }>('reports.generate', { ...params, format: 'XLSX' });
+        const res = await api.post<{ data: Record<string, unknown>[] }>('reports.generate', params);
         if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
           const ws = XLSX.utils.json_to_sheet(res.data.data);
           const wb = XLSX.utils.book_new();
@@ -164,6 +165,7 @@ export default function Reports() {
       setIsGenerating(false);
     }
   };
+
 
   const handleDownloadReport = async (report: GeneratedReport) => {
     try {
