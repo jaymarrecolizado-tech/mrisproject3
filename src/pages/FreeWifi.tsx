@@ -11,7 +11,7 @@ import {
   BarChart, Bar
 } from 'recharts';
 import { api } from '../services/api';
-import { dailySummaries } from '../data/mockData';
+import { dailySummaries } from '../data/mockDataDev';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import SitePhotos from '../components/SitePhotos';

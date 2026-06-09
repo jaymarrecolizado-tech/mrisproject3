@@ -7,6 +7,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit;
 
 require_once __DIR__ . '/../helpers/PasswordValidator.php';
 
+function generateSecureToken(int $length = 32): string {
+    return bin2hex(random_bytes($length));
+}
+
+function hashToken(string $token): string {
+    return hash('sha256', $token);
+}
+
+function constantTimeCompare(string $a, string $b): bool {
+    return hash_equals($a, $b);
+}
+
 switch ($action) {
 
     case 'auth.login':
@@ -182,6 +194,123 @@ switch ($action) {
         ]);
 
         ApiResponse::success(null, 'Password changed successfully');
+        break;
+
+    case 'auth.forgot-password':
+        $email = $input['email'] ?? '';
+
+        if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            ApiResponse::error('Valid email is required', 400);
+            exit;
+        }
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        if (!RateLimiter::check("forgot_password:$ip", 3, 3600)) {
+            ApiResponse::success(null, 'If the email exists, a reset link has been sent');
+            exit;
+        }
+
+        $db = Database::getInstance();
+        $user = $db->fetchOne(
+            'SELECT id, email, is_active FROM users WHERE email = ?',
+            [$email]
+        );
+
+        if ($user && $user['is_active']) {
+            $token = generateSecureToken(32);
+            $tokenHash = hashToken($token);
+            $expiresAt = date('Y-m-d H:i:s', time() + 3600);
+
+            $db->insert('password_resets', [
+                'user_id' => $user['id'],
+                'token_hash' => $tokenHash,
+                'expires_at' => $expiresAt,
+            ]);
+
+            $resetUrl = sprintf(
+                '%s/reset-password?token=%s&email=%s',
+                rtrim($_ENV['APP_URL'] ?? 'http://localhost', '/'),
+                $token,
+                urlencode($email)
+            );
+
+            error_log("[password_reset] Reset token generated for user {$user['id']} (email: {$email}). Reset URL: $resetUrl");
+        }
+
+        ApiResponse::success(null, 'If the email exists, a reset link has been sent');
+        break;
+
+    case 'auth.reset-password':
+        $token = $input['token'] ?? '';
+        $email = $input['email'] ?? '';
+        $newPassword = $input['new_password'] ?? '';
+
+        if (!$token || !$email || !$newPassword) {
+            ApiResponse::error('Token, email, and new password are required', 400);
+            exit;
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            ApiResponse::error('Valid email is required', 400);
+            exit;
+        }
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        if (!RateLimiter::check("reset_password:$ip", 5, 3600)) {
+            ApiResponse::error('Too many attempts. Please try again later.', 429);
+            exit;
+        }
+
+        try {
+            PasswordValidator::validate($newPassword);
+        } catch (\InvalidArgumentException $e) {
+            ApiResponse::error($e->getMessage(), 400);
+            exit;
+        }
+
+        $db = Database::getInstance();
+        $user = $db->fetchOne(
+            'SELECT id, is_active FROM users WHERE email = ?',
+            [$email]
+        );
+
+        if (!$user || !$user['is_active']) {
+            ApiResponse::success(null, 'Password has been reset successfully');
+            exit;
+        }
+
+        $tokenHash = hashToken($token);
+        $reset = $db->fetchOne(
+            'SELECT id FROM password_resets 
+             WHERE user_id = ? AND token_hash = ? AND expires_at > NOW() AND used_at IS NULL
+             ORDER BY created_at DESC LIMIT 1',
+            [$user['id'], $tokenHash]
+        );
+
+        if (!$reset) {
+            ApiResponse::success(null, 'Password has been reset successfully');
+            exit;
+        }
+
+        $db->beginTransaction();
+        try {
+            $db->update('users', ['password_hash' => password_hash($newPassword, PASSWORD_DEFAULT)], 'id = ?', [$user['id']]);
+            $db->update('users', ['token_version' => $db->fetchColumn('SELECT token_version FROM users WHERE id = ?', [$user['id']]) + 1], 'id = ?', [$user['id']]);
+            $db->update('password_resets', ['used_at' => date('Y-m-d H:i:s')], 'id = ?', [$reset['id']]);
+            $db->insert('audit_logs', [
+                'user_id' => $user['id'],
+                'action' => 'user.reset_password',
+                'entity_type' => 'user',
+                'entity_id' => $user['id'],
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            ]);
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollback();
+            throw $e;
+        }
+
+        ApiResponse::success(null, 'Password has been reset successfully');
         break;
 
     default:

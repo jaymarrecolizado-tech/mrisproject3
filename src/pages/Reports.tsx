@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../services/api';
-import { projects } from '../data/mockData';
+import { projects } from '../data/mockDataDev';
 
 const printStyles = `
 @media print {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Database, Copy, Check, Server, Code, FolderTree, FileJson, Shield } from 'lucide-react';
-import { mysqlSchema, phpApiSpec, folderStructure } from '../data/mockData';
+import { mysqlSchema, phpApiSpec, folderStructure } from '../data/mockDataDev';
 
 const tabs = [
   { id: 'schema', label: 'MySQL Schema', icon: Database },

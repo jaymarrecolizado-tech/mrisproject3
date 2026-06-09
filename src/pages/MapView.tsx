@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { projects as mockProjects, sites as mockSites } from '../data/mockData';
+import { projects as mockProjects, sites as mockSites } from '../data/mockDataDev';
 import { api } from '../services/api';
 import { useDarkMode } from '../context/DarkModeContext';
 import type { Site } from '../types';

@@ -7,7 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../services/api';
-import { projects } from '../data/mockData';
+import { projects } from '../data/mockDataDev';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import SitePhotos from '../components/SitePhotos';

@@ -391,3 +391,51 @@ CREATE TABLE site_photos (
   FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_site (site_id)
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- 16. PASSWORD RESETS
+-- ============================================================
+
+CREATE TABLE password_resets (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  token_hash VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user (user_id),
+  INDEX idx_token (token_hash),
+  INDEX idx_expires (expires_at)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 17. REFRESH TOKENS (for token rotation & revocation)
+-- ============================================================
+
+CREATE TABLE refresh_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  token_hash VARCHAR(255) NOT NULL,
+  jwt_id VARCHAR(64) NOT NULL,
+  user_agent TEXT,
+  ip_address VARCHAR(45),
+  expires_at TIMESTAMP NOT NULL,
+  revoked_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_jwt_id (jwt_id),
+  INDEX idx_user (user_id),
+  INDEX idx_token (token_hash),
+  INDEX idx_expires (expires_at)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- 18. PRODUCTION USER SETUP (run once after DB creation)
+-- ============================================================
+-- Create dedicated application user with minimal privileges
+-- Run as MySQL root:
+-- CREATE USER 'dict_mris_app'@'%' IDENTIFIED BY 'CHANGE_THIS_TO_STRONG_PASSWORD';
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON dict_mris.* TO 'dict_mris_app'@'%';
+-- FLUSH PRIVILEGES;
+-- Then update api/.env: DB_USER=dict_mris_app, DB_PASS=<that_password>

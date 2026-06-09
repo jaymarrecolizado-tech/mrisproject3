@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="API Tests">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <filter>
+        <whitelist processUncoveredFilesFromWhitelist="true">
+            <directory suffix=".php">routes</directory>
+            <directory suffix=".php">helpers</directory>
+            <directory suffix=".php">middleware</directory>
+            <directory suffix=".php">core</directory>
+        </whitelist>
+    </filter>
+    <logging>
+        <log type="coverage-html" target="coverage" lowUpperBound="50" highLowerBound="90"/>
+    </logging>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_NAME" value="dict_mris_test"/>
+        <env name="DB_USER" value="root"/>
+        <env name="DB_PASS" value=""/>
+        <env name="JWT_SECRET" value="test-secret-key-for-testing-only-32-chars-minimum"/>
+        <env name="JWT_EXPIRY" value="3600"/>
+        <env name="CORS_ORIGIN" value="http://localhost:5173"/>
+        <env name="APP_URL" value="http://localhost:5173"/>
+    </php>
+</phpunit>

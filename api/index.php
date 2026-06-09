@@ -82,6 +82,8 @@ $routes = [
     'auth.logout' => ['routes/auth.php', 'POST'],
     'auth.refresh' => ['routes/auth.php', 'POST'],
     'auth.change-password' => ['routes/auth.php', 'POST'],
+    'auth.forgot-password' => ['routes/auth.php', 'POST'],
+    'auth.reset-password' => ['routes/auth.php', 'POST'],
 
     // Users
     'users.list' => ['routes/users.php', 'GET'],

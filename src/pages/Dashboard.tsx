@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { dailySummaries, regionStats } from '../data/mockData';
+import { dailySummaries, regionStats } from '../data/mockDataDev';
 
 interface DashboardStats {
   total_sites: number;
