@@ -45,12 +45,13 @@ switch ($action) {
             [$email]
         );
 
-        if (!$user) {
-            ApiResponse::error('Invalid email or password', 401);
-            exit;
-        }
+        // Timing-safe: always run password_verify with a dummy hash to prevent
+        // account enumeration via timing attacks
+        $dummyHash = '$2y$10$dummyhashdummyhashdummyh';
+        $verifyResult = $user && password_verify($password, $user['password_hash']);
+        $dummyVerify = password_verify($password, $dummyHash);
 
-        if (!password_verify($password, $user['password_hash'])) {
+        if (!$user || !$verifyResult) {
             ApiResponse::error('Invalid email or password', 401);
             exit;
         }
@@ -274,18 +275,19 @@ switch ($action) {
             [$email]
         );
 
-        if (!$user || !$user['is_active']) {
-            ApiResponse::success(null, 'Password has been reset successfully');
-            exit;
-        }
-
         $tokenHash = hashToken($token);
+        $userId = $user && $user['is_active'] ? $user['id'] : 0;
         $reset = $db->fetchOne(
             'SELECT id FROM password_resets 
              WHERE user_id = ? AND token_hash = ? AND expires_at > NOW() AND used_at IS NULL
              ORDER BY created_at DESC LIMIT 1',
-            [$user['id'], $tokenHash]
+            [$userId, $tokenHash]
         );
+
+        if (!$user || !$user['is_active'] || !$reset) {
+            ApiResponse::success(null, 'Password has been reset successfully');
+            exit;
+        }
 
         if (!$reset) {
             ApiResponse::success(null, 'Password has been reset successfully');

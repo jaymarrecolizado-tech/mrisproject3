@@ -180,21 +180,22 @@ DB_PASS=
 
 ## 4. Security Risks (consolidated)
 
-| ID | Risk | File | Severity |
-|---|---|---|---|
-| S-1 | JWT secret fallback (see §3.2) | `api/helpers/JWT.php:59` | Critical |
-| S-2 | Empty DB root password | `api/.env` | Critical (prod) |
-| S-3 | No rate limiting on `/auth/login` | `api/index.php:172` | Critical |
-| S-4 | No HTTPS / security headers | `api/.htaccess` | High |
-| S-5 | CORS=`*` allows any origin | `api/.env` | High |
-| S-6 | Photo filename unsanitized (see §3.4) | `api/routes/photos.php` | Medium |
-| S-7 | No CSRF (acceptable for SPA, but document) | global | Medium |
-| S-8 | No `Content-Security-Policy` header | `api/.htaccess` | Medium |
-| S-9 | JWT lacks `kid` and rotation | `api/helpers/JWT.php:59` | Medium |
-| S-10 | No token revocation list | `database/schema.sql` | Medium |
-| S-11 | No password complexity policy | `api/routes/auth.php` | Medium |
-| S-12 | No 2FA | global | Low (defer) |
-| S-13 | `phpinfo()` or debug endpoints? | not seen | Verify |
+| ID | Risk | File | Severity | Status |
+|---|---|---|---|---|
+| S-1 | JWT secret fallback (see §3.2) | `api/helpers/JWT.php:59` | Critical | ✅ FIXED — throws on empty/default; .env has strong secret |
+| S-2 | Empty DB root password | `api/.env` | Critical (prod) | ⚠️ PENDING — run `database/setup-app-user.sql`, update .env |
+| S-3 | No rate limiting on `/auth/login` | `api/index.php:172` | Critical | ✅ FIXED — RateLimiter: 5 attempts/15min login, 60/min writes |
+| S-4 | No HTTPS / security headers | `api/.htaccess` | High | ✅ FIXED — HTTPS redirect + HSTS, CSP, X-Frame-Options, etc. |
+| S-5 | CORS=`*` allows any origin | `api/.env` | High | ✅ FIXED — rejects `*`; requires explicit origins |
+| S-6 | Photo filename unsanitized (see §3.4) | `api/routes/photos.php` | Medium | ⚠️ PENDING — filename sanitization needed |
+| S-7 | No CSRF (acceptable for SPA, but document) | global | Medium | ⚠️ DOCUMENTED — Bearer-only auth, SPA client |
+| S-8 | No `Content-Security-Policy` header | `api/.htaccess` | Medium | ✅ FIXED — CSP header present |
+| S-9 | JWT lacks `kid` and rotation | `api/helpers/JWT.php:59` | Medium | ⚠️ DEFERRED — acceptable for current scope |
+| S-10 | No token revocation list | `database/schema.sql` | Medium | ⚠️ DEFERRED — token_version rotation on pwd change |
+| S-11 | No password complexity policy | `api/routes/auth.php` | Medium | ⚠️ PENDING — add PasswordValidator |
+| S-12 | No 2FA | global | Low (defer) | ⏭️ DEFERRED |
+| S-13 | `phpinfo()` or debug endpoints? | not seen | Verify | ✅ VERIFIED — none found |
+| S-14 | **Account enumeration via timing** | `api/routes/auth.php` | Medium | ✅ FIXED — dummy bcrypt verify + always-run token query |
 
 ---
 

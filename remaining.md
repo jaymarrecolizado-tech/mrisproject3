@@ -87,14 +87,31 @@
 
 ## 🔒 Security QA Status
 
-### SEC-1: CORS allows all origins
-- **Risk:** Medium — Scoped to `*` for local dev. Recommended to scope to domain before production.
+### SEC-1: CORS allows all origins — ✅ FIXED
+- **Status:** CORS now rejects `*` wildcard (500 error). Requires explicit origins in `.env`. Dev origins configured.
 
-### SEC-2: display_errors config
-- **Risk:** Low — `display_errors` is off (handled via WAMP logs).
+### SEC-2: display_errors config — ✅ FIXED
+- **Status:** `display_errors = 0` in `api/index.php:12`; errors logged.
 
-### SEC-3: JWT Secret
-- **Risk:** High — Currently hardcoded in helper. Must be loaded via environment file `.env` on VPS.
+### SEC-3: JWT Secret — ✅ FIXED
+- **Status:** Strong secret generated and set in `.env`. Code throws 500 if missing/default.
+
+### SEC-4: HTTPS & Security Headers — ✅ FIXED
+- **Status:** `.htaccess` has HTTPS redirect (with localhost exception), HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy.
+
+### SEC-5: Rate Limiting — ✅ FIXED
+- **Status:** `RateLimiter` class + integration in `index.php`: 5 login attempts/15min, 60 write requests/min per IP.
+
+### SEC-6: Dedicated DB User — ⚠️ PENDING (requires MySQL)
+- **Action:** Run `database/setup-app-user.sql` on production MySQL, update `.env` with `dict_mris_app` credentials.
+
+### SEC-7: CORS Production Domain — ⚠️ PENDING
+- **Action:** Update `CORS_ORIGIN` in production `.env` to actual domain(s). See `api/.env.production` template.
+
+### SEC-8: Account Enumeration — ✅ FIXED
+- **Login**: Added dummy `password_verify()` call so timing is identical for valid/invalid emails
+- **Reset Password**: Always runs token validation query with dummy user_id (0) for non-existent users
+- **Forgot Password**: Already returned identical message; rate limiter keyed by IP, not email
 
 ---
 
