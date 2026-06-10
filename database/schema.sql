@@ -285,12 +285,14 @@ CREATE TABLE audit_logs (
   new_values JSON,
   ip_address VARCHAR(45),
   user_agent TEXT,
+  hash_chain VARCHAR(64),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_user (user_id),
   INDEX idx_action (action),
   INDEX idx_entity (entity_type, entity_id),
-  INDEX idx_date (created_at)
+  INDEX idx_date (created_at),
+  INDEX idx_hash_chain (hash_chain)
 ) ENGINE=InnoDB;
 
 -- ============================================================

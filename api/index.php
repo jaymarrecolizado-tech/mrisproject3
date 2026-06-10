@@ -18,34 +18,37 @@ loadEnv();
 
 require_once __DIR__ . '/helpers/ApiResponse.php';
 
-// CORS headers
+// CORS headers - Security: explicit origins only, no wildcard with credentials
 $corsOrigin = env('CORS_ORIGIN');
 if ($corsOrigin === null || $corsOrigin === '' || $corsOrigin === '*') {
-    error_log('[CORS] CORS_ORIGIN is not configured or set to wildcard in .env');
-    ApiResponse::error('Server configuration error', 500);
+    error_log('[CORS] CORS_ORIGIN is not configured or set to wildcard in .env. This is a security risk.');
+    ApiResponse::error('Server configuration error: CORS must be explicitly configured', 500);
     exit;
 }
-$allowCredentials = true;
+$allowedOrigins = array_map('trim', explode(',', $corsOrigin));
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if ($origin !== '') {
-    $allowedOrigins = array_map('trim', explode(',', $corsOrigin));
-    if (in_array($origin, $allowedOrigins, true)) {
-        header("Access-Control-Allow-Origin: $origin");
-        header('Access-Control-Allow-Credentials: true');
-    } else {
-        http_response_code(403);
-        ApiResponse::error('Origin not allowed', 403);
-        exit;
-    }
-} else {
+$isAllowedOrigin = false;
+
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    $isAllowedOrigin = true;
+    header("Access-Control-Allow-Origin: $origin");
+    header('Access-Control-Allow-Credentials: true');
+    // Vary header required when Access-Control-Allow-Origin is dynamic
+    header('Vary: Origin');
+}
+
+// For non-credentialed requests (e.g., health checks), allow if no origin or allowed
+if (!$isAllowedOrigin && $origin === '') {
     header('Access-Control-Allow-Credentials: false');
 }
+
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Max-Age: 86400');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    SecurityHeaders::applyForCorsPreflight();
     http_response_code(204);
     exit;
 }
@@ -55,6 +58,10 @@ require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/helpers/JWT.php';
 require_once __DIR__ . '/helpers/RateLimiter.php';
 require_once __DIR__ . '/middleware/Auth.php';
+require_once __DIR__ . '/middleware/SecurityHeaders.php';
+
+// Apply security headers to all responses
+SecurityHeaders::apply();
 
 // Configure JWT from environment
 $jwtSecret = env('JWT_SECRET');
@@ -64,7 +71,11 @@ if (empty($jwtSecret)) {
     exit;
 }
 JWT::setSecret($jwtSecret);
-JWT::setExpiry((int)env('JWT_EXPIRY', 86400));
+JWT::setAlgorithm(env('JWT_ALGORITHM', 'HS256'));
+JWT::setIssuer(env('JWT_ISSUER', 'dict-mris'));
+JWT::setAudience(env('JWT_AUDIENCE', 'dict-mris-app'));
+JWT::setAccessExpiry((int)env('JWT_ACCESS_EXPIRY', 900));      // 15 min default
+JWT::setRefreshExpiry((int)env('JWT_REFRESH_EXPIRY', 604800));  // 7 days default
 
 // Get action and method from query string or JSON body
 $action = $_GET['action'] ?? '';

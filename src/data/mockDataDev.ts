@@ -11,9 +11,8 @@ let mysqlSchema = '';
 let phpApiSpec = '';
 let folderStructure = '';
 
-// Use Vite's DEV constant which is available at compile time
-declare const DEV: boolean;
-if (DEV) {
+// Vite replaces this flag at build time, so production keeps the exports empty.
+if (import.meta.env.DEV) {
   dailySummaries = mockData.dailySummaries;
   regionStats = mockData.regionStats;
   projects = mockData.projects;

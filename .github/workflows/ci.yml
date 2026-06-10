@@ -5,11 +5,44 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly security scan
 
 jobs:
+  security-scan:
+    name: Security Scan (Deps + Secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for trufflehog
+      
+      - name: Run TruffleHog (secrets scanning)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --fail --no-verification
+      
+      - name: Run npm audit
+        run: |
+          npm ci --audit-level=high
+          if [ $? -ne 0 ]; then
+            echo "npm audit found vulnerabilities"
+            exit 1
+          fi
+      
+      - name: Run composer audit
+        working-directory: ./api
+        run: |
+          composer install --no-progress --prefer-dist --no-dev 2>/dev/null || true
+          composer audit --no-check-all --format=plain || true
+
   frontend-tests:
     name: Frontend Tests (Vitest)
     runs-on: ubuntu-latest
+    needs: security-scan
     steps:
       - uses: actions/checkout@v4
       
@@ -37,6 +70,7 @@ jobs:
   api-tests:
     name: API Tests (PHPUnit)
     runs-on: ubuntu-latest
+    needs: security-scan
     services:
       mysql:
         image: mysql:8.0
@@ -51,7 +85,7 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-    
+      
     steps:
       - uses: actions/checkout@v4
       

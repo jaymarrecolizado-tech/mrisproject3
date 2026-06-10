@@ -66,6 +66,25 @@ interface AuditEntry {
   user_name: string;
 }
 
+const fallbackDailySummaries: DailySummary[] = (() => {
+  if (dailySummaries.length > 0) return dailySummaries;
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const makeEmptySummary = (date: Date): DailySummary => ({
+    date: date.toISOString().split('T')[0],
+    totalSites: 0,
+    upCount: 0,
+    downCount: 0,
+    totalUsers: 0,
+    avgBandwidth: 0,
+  });
+
+  return [makeEmptySummary(yesterday), makeEmptySummary(today)];
+})();
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -97,7 +116,7 @@ export default function Dashboard() {
       api.get<any[]>('dashboard.daily'),
       api.get<ProjectStats[]>('projects.stats'),
       api.get<RegionStat[]>('dashboard.regional'),
-      api.get<any>('audit.list', { per_page: 8 }),
+      api.get<any>('audit.list', { per_page: 8 }).catch(() => ({ data: [] })),
       api.get<{ status_counts: Array<{ status: string; count: number }>; monthly_trend: Array<{ month: string; total: number; completed: number; in_progress: number }> }>('dashboard.milestones').catch(() => ({ data: { status_counts: [], monthly_trend: [] } })),
     ]).then(([statsRes, dailyRes, projRes, regionRes, auditRes, milestoneRes]) => {
       setStats(statsRes.data);
@@ -118,7 +137,7 @@ export default function Dashboard() {
       setIsLoading(false);
     }).catch(() => {
       setStats(null);
-      setDailyData(dailySummaries);
+      setDailyData(fallbackDailySummaries);
       setProjectStats([]);
       setRegionData([]);
       setIsLoading(false);
@@ -157,8 +176,8 @@ export default function Dashboard() {
   }, [isEncoder, isManager]);
 
   const displayData = useMemo(() => {
-    const mockToday = dailySummaries[dailySummaries.length - 1];
-    const mockYesterday = dailySummaries[dailySummaries.length - 2];
+    const mockToday = fallbackDailySummaries[fallbackDailySummaries.length - 1];
+    const mockYesterday = fallbackDailySummaries[fallbackDailySummaries.length - 2];
     const todayD = dailyData.length > 0 ? dailyData[dailyData.length - 1] : mockToday;
     const yesterdayD = dailyData.length > 1 ? dailyData[dailyData.length - 2] : mockYesterday;
 
@@ -212,8 +231,8 @@ export default function Dashboard() {
     };
   }, [stats, projectStats, dailyData]);
 
-  const today = dailyData.length > 0 ? dailyData[dailyData.length - 1] : dailySummaries[dailySummaries.length - 1];
-  const yesterday = dailyData.length > 1 ? dailyData[dailyData.length - 2] : dailySummaries[dailySummaries.length - 2];
+  const today = dailyData.length > 0 ? dailyData[dailyData.length - 1] : fallbackDailySummaries[fallbackDailySummaries.length - 1];
+  const yesterday = dailyData.length > 1 ? dailyData[dailyData.length - 2] : fallbackDailySummaries[fallbackDailySummaries.length - 2];
   const upChange = today.upCount - yesterday.upCount;
 
   const statusData = [
@@ -398,7 +417,7 @@ export default function Dashboard() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={dailyData.length > 0 ? dailyData : dailySummaries}>
+            <AreaChart data={dailyData.length > 0 ? dailyData : fallbackDailySummaries}>
               <defs>
                 <linearGradient id="colorUp" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
@@ -696,7 +715,7 @@ export default function Dashboard() {
           icon={<TrendingUp size={18} />}
           label="Uptime Rate"
           value={`${displayData.uptime_rate.toFixed(1)}%`}
-          change={displayData.uptime_change ?? ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100}
+          change={displayData.uptime_change ?? (today.totalSites > 0 && yesterday.totalSites > 0 ? ((today.upCount / today.totalSites) - (yesterday.upCount / yesterday.totalSites)) * 100 : 0)}
           suffix="%"
           isPercent
         />
