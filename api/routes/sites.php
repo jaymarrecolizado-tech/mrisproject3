@@ -300,9 +300,13 @@ switch ($action) {
     case 'sites.geo-filters':
         $where = ['1=1'];
         $params = [];
-        if (!empty($_GET['project_id'])) {
-            $where[] = 'project_id = ?';
-            $params[] = (int) $_GET['project_id'];
+        $projectId = trim((string)($_GET['project_id'] ?? ''));
+        if ($projectId !== '') {
+            $project = $db->fetchOne('SELECT id FROM projects WHERE id = ? OR LOWER(code) = ?', [(int)$projectId, strtolower($projectId)]);
+            if ($project) {
+                $where[] = 'project_id = ?';
+                $params[] = (int)$project['id'];
+            }
         }
         $whereClause = implode(' AND ', $where);
         $provinces = $db->fetchAll(

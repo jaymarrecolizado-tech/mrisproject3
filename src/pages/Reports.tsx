@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   FileText, Download, FileSpreadsheet,
   FileType, CheckCircle2, Clock, Printer, Loader2, Trash2
 } from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, CartesianGrid,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import * as XLSX from 'xlsx';
 import { api } from '../services/api';
 import { projects } from '../data/mockDataDev';
@@ -63,13 +67,135 @@ interface GeneratedReport {
   created_at: string;
 }
 
+interface ReportField {
+  label: string;
+  key: string;
+}
+
+interface ReportMetric {
+  label: string;
+  value: string | number;
+  subLabel: string;
+}
+
+interface ReportChart {
+  type: 'bar' | 'line';
+  title: string;
+  labels: string[];
+  values: number[];
+  secondaryValues?: number[];
+}
+
+interface ReportSummary {
+  title: string;
+  metrics: ReportMetric[];
+  charts: ReportChart[];
+  narrative: string;
+}
+
+const getDefaultDateRange = () => {
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today);
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  return {
+    from: thirtyDaysAgo.toISOString().split('T')[0],
+    to: today.toISOString().split('T')[0],
+  };
+};
+
+const reportFieldsByType: Record<string, ReportField[]> = {
+  daily_status: [
+    { label: 'Date', key: 'log_date' },
+    { label: 'Total Sites', key: 'total_sites' },
+    { label: 'UP', key: 'up_count' },
+    { label: 'DOWN', key: 'down_count' },
+    { label: 'Partial', key: 'partial_count' },
+    { label: 'Total Users', key: 'total_users' },
+    { label: 'Avg Bandwidth', key: 'avg_bandwidth' },
+  ],
+  weekly_summary: [
+    { label: 'Year', key: 'year' },
+    { label: 'Week', key: 'week' },
+    { label: 'Week Start', key: 'week_start' },
+    { label: 'Week End', key: 'week_end' },
+    { label: 'Total Sites', key: 'total_sites' },
+    { label: 'Uptime %', key: 'uptime_pct' },
+    { label: 'Total Users', key: 'total_users' },
+    { label: 'Avg Bandwidth', key: 'avg_bandwidth' },
+  ],
+  monthly_accomplishment: [
+    { label: 'Project Name', key: 'project_name' },
+    { label: 'Milestone', key: 'milestone_title' },
+    { label: 'Status', key: 'milestone_status' },
+    { label: 'Target Date', key: 'target_date' },
+    { label: 'Actual Date', key: 'actual_date' },
+    { label: 'Accomplishment %', key: 'accomplishment_percent' },
+    { label: 'Entry Date', key: 'entry_date' },
+  ],
+  regional_breakdown: [
+    { label: 'Island Group', key: 'island_group' },
+    { label: 'Total Sites', key: 'total_sites' },
+    { label: 'UP', key: 'up_sites' },
+    { label: 'DOWN', key: 'down_sites' },
+    { label: 'Avg Bandwidth', key: 'avg_bandwidth' },
+  ],
+  isp_performance: [
+    { label: 'ISP Provider', key: 'isp_provider' },
+    { label: 'Total Sites', key: 'total_sites' },
+    { label: 'UP', key: 'up_sites' },
+    { label: 'Uptime %', key: 'uptime_pct' },
+    { label: 'Avg Bandwidth', key: 'avg_bandwidth' },
+  ],
+  project_completion: [
+    { label: 'Project ID', key: 'project_id' },
+    { label: 'Code', key: 'code' },
+    { label: 'Name', key: 'name' },
+    { label: 'Total Sites', key: 'total_sites' },
+    { label: 'Active Sites', key: 'active_sites' },
+    { label: 'Down Sites', key: 'down_sites' },
+    { label: 'Avg Completion', key: 'avg_completion' },
+  ],
+  audit_trail: [
+    { label: 'ID', key: 'id' },
+    { label: 'User', key: 'user_name' },
+    { label: 'Email', key: 'user_email' },
+    { label: 'Action', key: 'action' },
+    { label: 'Entity Type', key: 'entity_type' },
+    { label: 'Entity ID', key: 'entity_id' },
+    { label: 'IP Address', key: 'ip_address' },
+    { label: 'Date', key: 'created_at' },
+  ],
+  site_implementation: [
+    { label: 'Site Code', key: 'site_code' },
+    { label: 'Site Name', key: 'site_name' },
+    { label: 'Location', key: 'location_name' },
+    { label: 'Project', key: 'project_name' },
+    { label: 'Barangay', key: 'barangay' },
+    { label: 'Municipality', key: 'municipality' },
+    { label: 'Province', key: 'province' },
+    { label: 'District', key: 'district' },
+    { label: 'Island Group', key: 'island_group' },
+    { label: 'Site Type', key: 'site_type' },
+    { label: 'ISP', key: 'isp_provider' },
+    { label: 'Technology', key: 'last_mile_tech' },
+    { label: 'Bandwidth (Mbps)', key: 'bw_download' },
+    { label: 'Status', key: 'status' },
+    { label: 'Last Updated', key: 'last_updated' },
+    { label: 'Latest Users', key: 'latest_users' },
+    { label: 'Accomplishment %', key: 'accomplishment_percent' },
+    { label: 'Entry Status', key: 'entry_status' },
+    { label: 'Last Updated By', key: 'entry_updated_by' },
+  ],
+};
+
 export default function Reports() {
   const [apiProjects, setApiProjects] = useState<ApiProject[]>([]);
   const [recentReports, setRecentReports] = useState<GeneratedReport[]>([]);
   const [selectedType, setSelectedType] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const defaultDateRange = getDefaultDateRange();
+  const [dateFrom, setDateFrom] = useState(defaultDateRange.from);
+  const [dateTo, setDateTo] = useState(defaultDateRange.to);
   const [format, setFormat] = useState('CSV');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -80,13 +206,91 @@ export default function Reports() {
   const [geoProvinces, setGeoProvinces] = useState<string[]>([]);
   const [geoMunicipalities, setGeoMunicipalities] = useState<Array<{ municipality: string; province: string }>>([]);
   const [geoDistricts, setGeoDistricts] = useState<Array<{ district: string; province: string }>>([]);
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [summary, setSummary] = useState<ReportSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+
+  const availableFields = reportFieldsByType[selectedType] ?? [];
+  const selectedFieldLabels = availableFields
+    .filter(field => selectedFields.includes(field.key))
+    .map(field => field.label);
+  const isSiteImplReport = selectedType === 'site_implementation';
+
+  const chartData = (chart: ReportChart) => chart.labels.map((label, index) => ({
+    label,
+    value: chart.values[index] ?? 0,
+    secondaryValue: chart.secondaryValues?.[index] ?? 0,
+  }));
+
+  const toggleField = (key: string) => {
+    setSelectedFields(current => {
+      if (current.includes(key) && current.length === 1) return current;
+      return current.includes(key)
+        ? current.filter(item => item !== key)
+        : [...current, key];
+    });
+  };
+
+  const selectAllFields = () => setSelectedFields(availableFields.map(field => field.key));
+  const clearExtraFields = () => {
+    if (availableFields[0]) setSelectedFields([availableFields[0].key]);
+  };
+
+  const handleTypeChange = (type: string) => {
+    const range = getDefaultDateRange();
+    setSelectedType(type);
+    setSelectedProject('');
+    setDateFrom(range.from);
+    setDateTo(range.to);
+    setProvinceFilter('');
+    setMunicipalityFilter('');
+    setDistrictFilter('');
+    setSelectedFields(reportFieldsByType[type]?.map(field => field.key) ?? []);
+    setSummary(null);
+    setSummaryError('');
+  };
+
+  const loadRecentReports = useCallback(() => {
+    api.getPaginated<GeneratedReport>('reports.list', { page: 1, per_page: 10 })
+      .then((res) => setRecentReports(res.data))
+      .catch(() => {});
+  }, []);
+
+  const loadSummary = useCallback(() => {
+    if (!selectedType || !dateFrom || !dateTo) {
+      setSummary(null);
+      setSummaryLoading(false);
+      setSummaryError('');
+      return;
+    }
+
+    const params: Record<string, string | number | null> = {
+      report_type: selectedType,
+      date_from: dateFrom,
+      date_to: dateTo,
+    };
+    if (selectedProject) params.project_id = selectedProject;
+    if (isSiteImplReport) {
+      if (provinceFilter) params.province = provinceFilter;
+      if (municipalityFilter) params.municipality = municipalityFilter;
+      if (districtFilter) params.district = districtFilter;
+    }
+
+    setSummaryLoading(true);
+    setSummaryError('');
+    api.get<ReportSummary>('reports.summary', params)
+      .then((res) => setSummary(res.data))
+      .catch((err: unknown) => setSummaryError(err instanceof Error ? err.message : 'Unable to load executive summary'))
+      .finally(() => setSummaryLoading(false));
+  }, [selectedType, selectedProject, dateFrom, dateTo, provinceFilter, municipalityFilter, districtFilter, isSiteImplReport]);
 
   useEffect(() => {
     api.get<ApiProject[]>('projects.list')
       .then((res) => setApiProjects(res.data))
       .catch(() => {});
     loadRecentReports();
-  }, []);
+  }, [loadRecentReports]);
 
   useEffect(() => {
     const params: Record<string, string | number | null> = {};
@@ -100,13 +304,24 @@ export default function Reports() {
       .catch(() => {});
   }, [selectedProject]);
 
-  const loadRecentReports = () => {
-    api.getPaginated<GeneratedReport>('reports.list', { page: 1, per_page: 10 })
-      .then((res) => setRecentReports(res.data))
-      .catch(() => {});
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProject(projectId);
+    setProvinceFilter('');
+    setMunicipalityFilter('');
+    setDistrictFilter('');
   };
 
-  const allProjects = apiProjects.length > 0 ? apiProjects : projects.map(p => ({ id: p.id, name: p.name }));
+  const projectIsApplicable = (project: ApiProject) => {
+    if (applicableProjects.length === 0 || applicableProjects.includes('all')) return true;
+    return applicableProjects.includes(String(project.id)) || applicableProjects.includes(project.code ?? '');
+  };
+
+  const allProjects = (apiProjects.length > 0 ? apiProjects : projects.map(p => ({ id: p.id, name: p.name, code: p.id })))
+    .filter(projectIsApplicable);
 
   const filteredMunicipalities = provinceFilter
     ? geoMunicipalities.filter(m => m.province === provinceFilter).map(m => m.municipality)
@@ -115,8 +330,6 @@ export default function Reports() {
   const filteredDistricts = provinceFilter
     ? geoDistricts.filter(d => d.province === provinceFilter).map(d => d.district)
     : geoDistricts.map(d => d.district);
-
-  const isSiteImplReport = selectedType === 'site_implementation';
 
   const handleGenerate = async () => {
     if (!selectedType) return;
@@ -130,6 +343,7 @@ export default function Reports() {
         project_id: selectedProject || null,
         date_from: dateFrom || null,
         date_to: dateTo || null,
+        selected_fields: selectedFields.join(','),
         ...(isSiteImplReport ? {
           province: provinceFilter || null,
           municipality: municipalityFilter || null,
@@ -231,7 +445,7 @@ export default function Reports() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Report Type</label>
               <select
                 value={selectedType}
-                onChange={(e) => { setSelectedType(e.target.value); setSelectedProject(''); }}
+                onChange={(e) => handleTypeChange(e.target.value)}
                 className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
               >
                 <option value="">Select report type...</option>
@@ -251,7 +465,7 @@ export default function Reports() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Project</label>
                 <select
                   value={selectedProject}
-                  onChange={(e) => setSelectedProject(e.target.value)}
+                  onChange={(e) => handleProjectChange(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue/30"
                 >
                   <option value="">All Projects</option>
@@ -336,6 +550,55 @@ export default function Reports() {
                       {[...new Set(filteredDistricts)].map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {availableFields.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Report Fields</label>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      {selectedFieldLabels.length} selected for PDF, CSV, and Excel exports
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={selectAllFields}
+                      className="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearExtraFields}
+                      disabled={selectedFields.length <= 1}
+                      className="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Keep First
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                  {availableFields.map(field => (
+                    <label
+                      key={field.key}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors
+                        ${selectedFields.includes(field.key)
+                          ? 'border-dict-blue bg-blue-50 dark:bg-blue-950/30 text-slate-800 dark:text-slate-100'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFields.includes(field.key)}
+                        onChange={() => toggleField(field.key)}
+                        className="h-4 w-4 rounded border-slate-300 text-dict-blue focus:ring-dict-blue"
+                      />
+                      <span className="truncate">{field.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             )}
@@ -447,6 +710,86 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      {summaryLoading && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+            <Loader2 size={16} className="animate-spin" />
+            Loading executive summary...
+          </div>
+        </div>
+      )}
+
+      {summaryError && (
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl p-4 text-sm text-red-700 dark:text-red-200">
+          {summaryError}
+        </div>
+      )}
+
+      {summary && (
+        <div id="printable-report" className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-dict-blue">Executive Summary</p>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{summary.title}</h2>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {formatDate(dateFrom)} - {formatDate(dateTo)}
+            </div>
+          </div>
+
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-4 leading-relaxed">{summary.narrative}</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
+            {summary.metrics.map(metric => (
+              <div key={metric.label} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{metric.label}</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{metric.value}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{metric.subLabel}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-5">
+            {summary.charts.length === 0 ? (
+              <div className="col-span-1 xl:col-span-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                No chart data available for the selected filters.
+              </div>
+            ) : (
+              summary.charts.map((chart, index) => {
+                const data = chartData(chart);
+                return (
+                  <div key={`${chart.title}-${index}`} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">{chart.title}</h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                      {chart.type === 'line' ? (
+                        <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" />
+                          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      ) : (
+                        <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" />
+                          <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                          {chart.secondaryValues && (
+                            <Bar dataKey="secondaryValue" fill="#94A3B8" radius={[4, 4, 0, 0]} />
+                          )}
+                        </BarChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

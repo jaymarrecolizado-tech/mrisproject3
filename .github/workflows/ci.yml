@@ -67,10 +67,31 @@ jobs:
         with:
           files: ./coverage/lcov.info
 
+  php-static-analysis:
+    name: PHP Static Analysis (PHPStan)
+    runs-on: ubuntu-latest
+    needs: security-scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, mbstring, json
+
+      - name: Install dependencies
+        working-directory: ./api
+        run: composer install --no-progress --prefer-dist
+
+      - name: Run PHPStan
+        working-directory: ./api
+        run: vendor/bin/phpstan analyse --configuration=phpstan.neon --no-progress
+
   api-tests:
     name: API Tests (PHPUnit)
     runs-on: ubuntu-latest
-    needs: security-scan
+    needs: [security-scan, php-static-analysis]
     services:
       mysql:
         image: mysql:8.0

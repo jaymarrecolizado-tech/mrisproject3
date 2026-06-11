@@ -16,6 +16,13 @@ ini_set('log_errors', 1);
 require_once __DIR__ . '/config/env.php';
 loadEnv();
 
+// Override with root .env if exists
+if (file_exists(__DIR__ . '/../../.env')) {
+    $envPath = __DIR__ . '/../../.env';
+    $envContent = file_get_contents($envPath);
+    putenv($envContent);
+}
+
 require_once __DIR__ . '/helpers/ApiResponse.php';
 
 // CORS headers - Security: explicit origins only, no wildcard with credentials

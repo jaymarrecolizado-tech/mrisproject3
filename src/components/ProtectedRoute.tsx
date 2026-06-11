@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredPermission }: ProtectedRouteProps) {
+  const location = useLocation();
   const { user, isLoading, hasPermission } = useAuth();
 
   if (isLoading) {
@@ -23,7 +24,7 @@ export default function ProtectedRoute({ children, requiredPermission }: Protect
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {

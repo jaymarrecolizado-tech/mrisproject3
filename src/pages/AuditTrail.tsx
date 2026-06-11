@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Filter, Calendar, User, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Shield, Filter, Calendar, User, Search, ChevronLeft, ChevronRight, Eye, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '../services/api';
 
@@ -24,6 +24,12 @@ interface PaginatedResponse<T> {
   page: number;
   per_page: number;
   total_pages: number;
+  pagination?: {
+    total: number;
+    page: number;
+    per_page: number;
+    last_page: number;
+  };
 }
 
 export default function AuditTrail() {
@@ -32,6 +38,7 @@ export default function AuditTrail() {
   const [page, setPage] = useState(1);
   const [perPage] = useState(20);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     user_id: '',
     action: '',
@@ -48,6 +55,7 @@ export default function AuditTrail() {
 
   function fetchLogs() {
     setIsLoading(true);
+    setError(null);
     const params: Record<string, string> = { page: String(page), per_page: String(perPage) };
     if (filters.user_id) params.user_id = filters.user_id;
     if (filters.action) params.action = filters.action;
@@ -57,13 +65,21 @@ export default function AuditTrail() {
 
     api.get<PaginatedResponse<AuditLog>>('audit.list', params)
       .then((res) => {
-        setLogs(res.data.data);
-        setTotal(res.data.total);
+        const items = Array.isArray(res.data.data) ? res.data.data : [];
+        const totalItems = typeof res.data.total === 'number'
+          ? res.data.total
+          : typeof res.data.pagination?.total === 'number'
+            ? res.data.pagination.total
+            : 0;
+        setLogs(items);
+        setTotal(totalItems);
         setIsLoading(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : 'Unable to load audit logs';
         setLogs([]);
         setTotal(0);
+        setError(message.includes('Unauthorized') ? 'Session expired. Please sign in again to view the audit trail.' : message);
         setIsLoading(false);
       });
   }
@@ -192,6 +208,20 @@ export default function AuditTrail() {
         </motion.div>
       )}
 
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-3"
+        >
+          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-700 dark:text-red-300">Audit logs could not be loaded</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -265,7 +295,7 @@ export default function AuditTrail() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {((page - 1) * perPage) + 1}–{Math.min(page * perPage, total)} of {total}
+              {total === 0 ? 'No audit logs' : `Showing ${((page - 1) * perPage) + 1}–${Math.min(page * perPage, total)} of ${total}`}
             </p>
             <div className="flex items-center gap-1">
               <button

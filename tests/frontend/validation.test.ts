@@ -1,4 +1,4 @@
-import { vi, describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Frontend password validation (mirrors backend PasswordValidator)
 export function validatePassword(password: string): { valid: boolean; errors: string[] } {

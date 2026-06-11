@@ -16,7 +16,7 @@ describe('appBase utility functions', () => {
   });
 
   it('should return undefined basename when window is undefined', () => {
-    // @ts-ignore
+    // @ts-expect-error — deleting window to simulate SSR environment
     delete global.window;
     expect(getRouterBasename()).toBeUndefined();
     expect(getAppBasePath()).toBe('/');

@@ -37,6 +37,326 @@ switch ($action) {
         ApiResponse::paginated($reports, (int) $total, $page, $perPage);
         break;
 
+    case 'reports.summary':
+        if (!AuthMiddleware::hasPermission('reports.generate')) {
+            ApiResponse::error('Forbidden', 403);
+            exit;
+        }
+
+        $reportType = $input['report_type'] ?? $_GET['report_type'] ?? '';
+        $dateFrom = $input['date_from'] ?? $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
+        $dateTo = $input['date_to'] ?? $_GET['date_to'] ?? date('Y-m-d');
+        $projectId = $input['project_id'] ?? $_GET['project_id'] ?? null;
+        if ($projectId) {
+            $projectRow = $db->fetchOne('SELECT id FROM projects WHERE id = ? OR LOWER(code) = ?', [(int)$projectId, strtolower((string)$projectId)]);
+            $projectId = $projectRow ? (int)$projectRow['id'] : null;
+        }
+        $province = $input['province'] ?? $_GET['province'] ?? null;
+        $municipality = $input['municipality'] ?? $_GET['municipality'] ?? null;
+        $district = $input['district'] ?? $_GET['district'] ?? null;
+
+        $validTypes = ['daily_status', 'weekly_summary', 'monthly_accomplishment', 'regional_breakdown',
+                       'isp_performance', 'project_completion', 'audit_trail', 'site_implementation'];
+        if (!in_array($reportType, $validTypes)) {
+            ApiResponse::error('Invalid report type', 400);
+            exit;
+        }
+
+        $summary = [
+            'title' => ucfirst(str_replace('_', ' ', $reportType)) . ' Executive Summary',
+            'metrics' => [],
+            'charts' => [],
+            'narrative' => '',
+        ];
+
+        switch ($reportType) {
+            case 'daily_status':
+                $siteJoin = '';
+                $where = ['l.log_date BETWEEN ? AND ?'];
+                $params = [$dateFrom, $dateTo];
+                if ($projectId) {
+                    $siteJoin .= ' LEFT JOIN sites s ON s.id = l.site_id';
+                    $where[] = 's.project_id = ?';
+                    $params[] = (int) $projectId;
+                }
+                if ($province) { $siteJoin .= ' LEFT JOIN sites sp ON sp.id = l.site_id'; $where[] = 'sp.province = ?'; $params[] = $province; }
+                if ($municipality) { $siteJoin .= ' LEFT JOIN sites sm ON sm.id = l.site_id'; $where[] = 'sm.municipality = ?'; $params[] = $municipality; }
+                if ($district) { $siteJoin .= ' LEFT JOIN sites sd ON sd.id = l.site_id'; $where[] = 'sd.district = ?'; $params[] = $district; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_sites,
+                                                SUM(CASE WHEN l.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                                SUM(CASE WHEN l.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites,
+                                                SUM(CASE WHEN l.status = 'PARTIAL' THEN 1 ELSE 0 END) AS partial_sites,
+                                                COALESCE(SUM(l.total_unique_users), 0) AS total_users,
+                                                COALESCE(ROUND(AVG(l.bandwidth_utilization), 2), 0) AS avg_bandwidth
+                                         FROM free_wifi_daily_logs l {$siteJoin}
+                                         WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT DATE_FORMAT(l.log_date, '%b %d') AS label,
+                                               SUM(CASE WHEN l.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                               SUM(CASE WHEN l.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites,
+                                               SUM(CASE WHEN l.status = 'PARTIAL' THEN 1 ELSE 0 END) AS partial_sites
+                                        FROM free_wifi_daily_logs l {$siteJoin}
+                                        WHERE {$whereClause}
+                                        GROUP BY l.log_date
+                                        ORDER BY l.log_date DESC
+                                        LIMIT 14", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Logged Site-Days', 'value' => (int)($totals['total_sites'] ?? 0), 'subLabel' => 'Daily status records'],
+                    ['label' => 'UP Sites', 'value' => (int)($totals['up_sites'] ?? 0), 'subLabel' => 'Within selected range'],
+                    ['label' => 'DOWN Sites', 'value' => (int)($totals['down_sites'] ?? 0), 'subLabel' => 'Needs follow-up'],
+                    ['label' => 'Average Bandwidth', 'value' => number_format((float)($totals['avg_bandwidth'] ?? 0), 2), 'subLabel' => 'Mbps average'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Daily Status Trend',
+                    'labels' => array_reverse(array_column($chart, 'label')),
+                    'values' => array_reverse(array_map('intval', array_column($chart, 'up_sites'))),
+                    'secondaryValues' => array_reverse(array_map('intval', array_column($chart, 'down_sites'))),
+                ]];
+                $summary['narrative'] = 'This summary highlights site availability trends for the selected period. Higher UP counts indicate stable service delivery, while DOWN and PARTIAL counts identify areas that require operational follow-up.';
+                break;
+
+            case 'weekly_summary':
+                $siteJoin = '';
+                $where = ['l.log_date BETWEEN ? AND ?'];
+                $params = [$dateFrom, $dateTo];
+                if ($projectId) { $siteJoin .= ' LEFT JOIN sites s ON s.id = l.site_id'; $where[] = 's.project_id = ?'; $params[] = (int) $projectId; }
+                if ($province) { $siteJoin .= ' LEFT JOIN sites sp ON sp.id = l.site_id'; $where[] = 'sp.province = ?'; $params[] = $province; }
+                if ($municipality) { $siteJoin .= ' LEFT JOIN sites sm ON sm.id = l.site_id'; $where[] = 'sm.municipality = ?'; $params[] = $municipality; }
+                if ($district) { $siteJoin .= ' LEFT JOIN sites sd ON sd.id = l.site_id'; $where[] = 'sd.district = ?'; $params[] = $district; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_logs,
+                                                ROUND(SUM(CASE WHEN l.status = 'UP' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS uptime_pct,
+                                                COALESCE(SUM(l.total_unique_users), 0) AS total_users,
+                                                COALESCE(ROUND(AVG(l.bandwidth_utilization), 2), 0) AS avg_bandwidth
+                                         FROM free_wifi_daily_logs l {$siteJoin}
+                                         WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT YEAR(l.log_date) AS year,
+                                               WEEK(l.log_date) AS week,
+                                               DATE_FORMAT(MIN(l.log_date), '%b %d') AS label,
+                                               ROUND(SUM(CASE WHEN l.status = 'UP' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS uptime_pct
+                                        FROM free_wifi_daily_logs l {$siteJoin}
+                                        WHERE {$whereClause}
+                                        GROUP BY YEAR(l.log_date), WEEK(l.log_date)
+                                        ORDER BY MIN(l.log_date) DESC
+                                        LIMIT 12", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Weekly Records', 'value' => (int)($totals['total_logs'] ?? 0), 'subLabel' => 'Site-day observations'],
+                    ['label' => 'Uptime', 'value' => number_format((float)($totals['uptime_pct'] ?? 0), 2) . '%', 'subLabel' => 'UP share of observations'],
+                    ['label' => 'Total Users', 'value' => number_format((float)($totals['total_users'] ?? 0), 0), 'subLabel' => 'Unique-user count'],
+                    ['label' => 'Avg Bandwidth', 'value' => number_format((float)($totals['avg_bandwidth'] ?? 0), 2), 'subLabel' => 'Mbps average'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'line',
+                    'title' => 'Weekly Uptime Trend',
+                    'labels' => array_reverse(array_column($chart, 'label')),
+                    'values' => array_reverse(array_map('floatval', array_column($chart, 'uptime_pct'))),
+                ]];
+                $summary['narrative'] = 'Weekly trends help separate isolated incidents from recurring service degradation. Use sustained dips in uptime to prioritize site inspections or ISP escalation.';
+                break;
+
+            case 'monthly_accomplishment':
+                $where = ["p.type = 'milestone'", 'p.is_active = 1'];
+                $params = [];
+                if ($projectId) { $where[] = 'p.id = ?'; $params[] = (int) $projectId; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(DISTINCT m.id) AS total_milestones,
+                                                SUM(CASE WHEN m.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completed_milestones,
+                                                COALESCE(ROUND(AVG(e.accomplishment_percent), 2), 0) AS avg_accomplishment
+                                         FROM projects p
+                                         JOIN milestones m ON m.project_id = p.id
+                                         LEFT JOIN dict_project_entries e ON e.project_id = p.id AND e.entry_date BETWEEN ? AND ?
+                                         WHERE {$whereClause}", array_merge([$dateFrom, $dateTo], $params));
+                $chart = $db->fetchAll("SELECT m.status AS label, COUNT(*) AS value
+                                        FROM projects p
+                                        JOIN milestones m ON m.project_id = p.id
+                                        WHERE {$whereClause}
+                                        GROUP BY m.status
+                                        ORDER BY value DESC", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Milestones', 'value' => (int)($totals['total_milestones'] ?? 0), 'subLabel' => 'Active milestone items'],
+                    ['label' => 'Completed', 'value' => (int)($totals['completed_milestones'] ?? 0), 'subLabel' => 'Milestone status'],
+                    ['label' => 'Accomplishment', 'value' => number_format((float)($totals['avg_accomplishment'] ?? 0), 2) . '%', 'subLabel' => 'Average progress'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Milestone Status Distribution',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('intval', array_column($chart, 'value')),
+                ]];
+                $summary['narrative'] = 'Accomplishment reporting compares planned milestones with actual progress. Delayed or in-progress milestones should be reviewed against site-level completion entries.';
+                break;
+
+            case 'regional_breakdown':
+                $where = ['1 = 1'];
+                $params = [];
+                if ($projectId) { $where[] = 's.project_id = ?'; $params[] = (int) $projectId; }
+                if ($province) { $where[] = 's.province = ?'; $params[] = $province; }
+                if ($municipality) { $where[] = 's.municipality = ?'; $params[] = $municipality; }
+                if ($district) { $where[] = 's.district = ?'; $params[] = $district; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_sites,
+                                                SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                                SUM(CASE WHEN s.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites,
+                                                COALESCE(ROUND(AVG(s.bw_download), 2), 0) AS avg_bandwidth
+                                         FROM sites s WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT s.island_group AS label,
+                                               COUNT(*) AS value,
+                                               SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                               SUM(CASE WHEN s.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites
+                                        FROM sites s WHERE {$whereClause}
+                                        GROUP BY s.island_group
+                                        ORDER BY s.island_group", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Total Sites', 'value' => (int)($totals['total_sites'] ?? 0), 'subLabel' => 'Selected project scope'],
+                    ['label' => 'UP Sites', 'value' => (int)($totals['up_sites'] ?? 0), 'subLabel' => 'Active service points'],
+                    ['label' => 'DOWN Sites', 'value' => (int)($totals['down_sites'] ?? 0), 'subLabel' => 'Service gaps'],
+                    ['label' => 'Avg Bandwidth', 'value' => number_format((float)($totals['avg_bandwidth'] ?? 0), 2), 'subLabel' => 'Mbps average'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Sites by Island Group',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('intval', array_column($chart, 'value')),
+                    'secondaryValues' => array_map('intval', array_column($chart, 'down_sites')),
+                ]];
+                $summary['narrative'] = 'Regional distribution shows where infrastructure is concentrated and where downtime is affecting service coverage. Island-group comparisons support regional prioritization.';
+                break;
+
+            case 'project_completion':
+                $where = ['1 = 1'];
+                $params = [];
+                if ($projectId) { $where[] = 'project_id = ?'; $params[] = (int) $projectId; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS active_projects,
+                                                COALESCE(ROUND(AVG(avg_completion), 2), 0) AS avg_completion,
+                                                COALESCE(SUM(active_sites), 0) AS active_sites,
+                                                COALESCE(SUM(down_sites), 0) AS down_sites
+                                         FROM vw_project_accomplishment WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT project_name AS label, avg_completion AS value
+                                        FROM vw_project_accomplishment
+                                        WHERE {$whereClause}
+                                        ORDER BY avg_completion ASC
+                                        LIMIT 10", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Active Projects', 'value' => (int)($totals['active_projects'] ?? 0), 'subLabel' => 'Milestone projects'],
+                    ['label' => 'Avg Completion', 'value' => number_format((float)($totals['avg_completion'] ?? 0), 2) . '%', 'subLabel' => 'Across projects'],
+                    ['label' => 'Active Sites', 'value' => (int)($totals['active_sites'] ?? 0), 'subLabel' => 'UP sites'],
+                    ['label' => 'Down Sites', 'value' => (int)($totals['down_sites'] ?? 0), 'subLabel' => 'Needs attention'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Lowest Completion Rates',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('floatval', array_column($chart, 'value')),
+                ]];
+                $summary['narrative'] = 'Project completion is measured against site availability and accomplishment entries. Lower-ranked projects should be reviewed first for bottlenecks or missing deliverables.';
+                break;
+
+            case 'isp_performance':
+                $where = ['s.isp_provider IS NOT NULL', "s.isp_provider != ''"];
+                $params = [];
+                if ($projectId) { $where[] = 's.project_id = ?'; $params[] = (int) $projectId; }
+                if ($province) { $where[] = 's.province = ?'; $params[] = $province; }
+                if ($municipality) { $where[] = 's.municipality = ?'; $params[] = $municipality; }
+                if ($district) { $where[] = 's.district = ?'; $params[] = $district; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_sites,
+                                                ROUND(SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS uptime_pct,
+                                                COALESCE(ROUND(AVG(s.bw_download), 2), 0) AS avg_bandwidth
+                                         FROM sites s WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT s.isp_provider AS label,
+                                               COUNT(*) AS value,
+                                               ROUND(SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS uptime_pct
+                                        FROM sites s WHERE {$whereClause}
+                                        GROUP BY s.isp_provider
+                                        ORDER BY uptime_pct ASC, value DESC
+                                        LIMIT 10", $params);
+                $summary['metrics'] = [
+                    ['label' => 'ISP Sites', 'value' => (int)($totals['total_sites'] ?? 0), 'subLabel' => 'Sites with ISP data'],
+                    ['label' => 'Uptime', 'value' => number_format((float)($totals['uptime_pct'] ?? 0), 2) . '%', 'subLabel' => 'UP share'],
+                    ['label' => 'Avg Bandwidth', 'value' => number_format((float)($totals['avg_bandwidth'] ?? 0), 2), 'subLabel' => 'Mbps average'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'ISP Uptime Ranking',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('floatval', array_column($chart, 'uptime_pct')),
+                ]];
+                $summary['narrative'] = 'ISP performance compares provider reliability across the selected project scope. Providers with lower uptime should be prioritized for service-level review.';
+                break;
+
+            case 'audit_trail':
+                $where = ['a.created_at BETWEEN ? AND ?'];
+                $params = [$dateFrom, $dateTo];
+                if ($projectId) { $where[] = "(a.entity_type = 'project' AND a.entity_id = ?)"; $params[] = (int) $projectId; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_logs,
+                                                COUNT(DISTINCT a.user_id) AS distinct_users,
+                                                COUNT(DISTINCT a.action) AS distinct_actions
+                                         FROM audit_logs a
+                                         WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT a.action AS label, COUNT(*) AS value
+                                        FROM audit_logs a
+                                        WHERE {$whereClause}
+                                        GROUP BY a.action
+                                        ORDER BY value DESC
+                                        LIMIT 10", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Audit Logs', 'value' => (int)($totals['total_logs'] ?? 0), 'subLabel' => 'Selected period'],
+                    ['label' => 'Users', 'value' => (int)($totals['distinct_users'] ?? 0), 'subLabel' => 'Distinct actors'],
+                    ['label' => 'Actions', 'value' => (int)($totals['distinct_actions'] ?? 0), 'subLabel' => 'Distinct event types'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Top Audit Actions',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('intval', array_column($chart, 'value')),
+                ]];
+                $summary['narrative'] = 'Audit activity highlights who changed what and when. Spikes in a single action type may indicate a process change, bulk update, or data quality issue requiring review.';
+                break;
+
+            case 'site_implementation':
+                $where = ['1 = 1'];
+                $params = [];
+                if ($projectId) { $where[] = 's.project_id = ?'; $params[] = (int) $projectId; }
+                if ($province) { $where[] = 's.province = ?'; $params[] = $province; }
+                if ($municipality) { $where[] = 's.municipality = ?'; $params[] = $municipality; }
+                if ($district) { $where[] = 's.district = ?'; $params[] = $district; }
+                $whereClause = implode(' AND ', $where);
+                $totals = $db->fetchOne("SELECT COUNT(*) AS total_sites,
+                                                SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                                SUM(CASE WHEN s.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites,
+                                                COALESCE(ROUND(AVG(s.bw_download), 2), 0) AS avg_bandwidth
+                                         FROM sites s WHERE {$whereClause}", $params);
+                $chart = $db->fetchAll("SELECT s.province AS label,
+                                               COUNT(*) AS value,
+                                               SUM(CASE WHEN s.status = 'UP' THEN 1 ELSE 0 END) AS up_sites,
+                                               SUM(CASE WHEN s.status = 'DOWN' THEN 1 ELSE 0 END) AS down_sites
+                                        FROM sites s WHERE {$whereClause}
+                                        GROUP BY s.province
+                                        ORDER BY value DESC
+                                        LIMIT 10", $params);
+                $summary['metrics'] = [
+                    ['label' => 'Implementation Sites', 'value' => (int)($totals['total_sites'] ?? 0), 'subLabel' => 'Selected scope'],
+                    ['label' => 'UP Sites', 'value' => (int)($totals['up_sites'] ?? 0), 'subLabel' => 'Operational'],
+                    ['label' => 'DOWN Sites', 'value' => (int)($totals['down_sites'] ?? 0), 'subLabel' => 'Requires action'],
+                    ['label' => 'Avg Bandwidth', 'value' => number_format((float)($totals['avg_bandwidth'] ?? 0), 2), 'subLabel' => 'Mbps average'],
+                ];
+                $summary['charts'] = [[
+                    'type' => 'bar',
+                    'title' => 'Implementation by Province',
+                    'labels' => array_column($chart, 'label'),
+                    'values' => array_map('intval', array_column($chart, 'value')),
+                    'secondaryValues' => array_map('intval', array_column($chart, 'down_sites')),
+                ]];
+                $summary['narrative'] = 'Implementation status summarizes site readiness and operational health by selected geographic scope. Province-level concentration helps target inspections, coordination, and escalation.';
+                break;
+        }
+
+        ApiResponse::success($summary);
+        break;
+
 
     case 'reports.generate':
         if (!AuthMiddleware::hasPermission('reports.generate')) {
@@ -49,7 +369,18 @@ switch ($action) {
         $dateFrom = $input['date_from'] ?? $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
         $dateTo = $input['date_to'] ?? $_GET['date_to'] ?? date('Y-m-d');
         $projectId = $input['project_id'] ?? $_GET['project_id'] ?? null;
+        if ($projectId) {
+            $projectRow = $db->fetchOne('SELECT id FROM projects WHERE id = ? OR LOWER(code) = ?', [(int)$projectId, strtolower((string)$projectId)]);
+            $projectId = $projectRow ? (int)$projectRow['id'] : null;
+        }
         $title = $input['title'] ?? ucfirst(str_replace('_', ' ', $reportType)) . ' Report';
+        $selectedFieldsRaw = $input['selected_fields'] ?? $_GET['selected_fields'] ?? '';
+        $selectedFields = [];
+        if (is_array($selectedFieldsRaw)) {
+            $selectedFields = array_values(array_filter(array_map('trim', $selectedFieldsRaw)));
+        } elseif (is_string($selectedFieldsRaw) && trim($selectedFieldsRaw) !== '') {
+            $selectedFields = array_values(array_filter(array_map('trim', explode(',', $selectedFieldsRaw))));
+        }
 
         $validTypes = ['daily_status', 'weekly_summary', 'monthly_accomplishment', 'regional_breakdown',
                        'isp_performance', 'project_completion', 'audit_trail', 'site_implementation'];
@@ -326,6 +657,13 @@ switch ($action) {
 
             // Headers
             $colMap = $columnMaps[$reportType] ?? null;
+            if ($selectedFields && is_array($colMap)) {
+                $colMap = array_filter(
+                    $colMap,
+                    fn($column) => in_array($column, $selectedFields, true),
+                    ARRAY_FILTER_USE_VALUE
+                );
+            }
             $colLabels = $colMap ? array_keys($colMap) : $headers;
             $colCount = count($colLabels);
             $colWidth = min(floor(270 / $colCount), 50);
@@ -383,9 +721,18 @@ switch ($action) {
             $output = fopen('php://output', 'w');
             // BOM for Excel UTF-8
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($output, $headers);
 
             $colMap = $columnMaps[$reportType] ?? null;
+            if ($selectedFields && is_array($colMap)) {
+                $colMap = array_filter(
+                    $colMap,
+                    fn($column) => in_array($column, $selectedFields, true),
+                    ARRAY_FILTER_USE_VALUE
+                );
+            }
+            $colLabels = $colMap ? array_keys($colMap) : $headers;
+            fputcsv($output, $colLabels);
+
             foreach ($reportData as $row) {
                 $values = [];
                 if ($colMap) {
@@ -402,9 +749,31 @@ switch ($action) {
             exit;
         }
 
+        $displayRows = [];
+        $displayColMap = $columnMaps[$reportType] ?? null;
+        if ($selectedFields && is_array($displayColMap)) {
+            $displayColMap = array_filter(
+                $displayColMap,
+                fn($column) => in_array($column, $selectedFields, true),
+                ARRAY_FILTER_USE_VALUE
+            );
+        }
+
+        if (is_array($reportData) && is_array($displayColMap)) {
+            foreach ($reportData as $row) {
+                $displayRow = [];
+                foreach ($displayColMap as $label => $column) {
+                    $displayRow[$label] = $row[$column] ?? '';
+                }
+                $displayRows[] = $displayRow;
+            }
+        } else {
+            $displayRows = $reportData;
+        }
+
         ApiResponse::success([
             'id'     => $reportId,
-            'data'   => $reportData,
+            'data'   => $displayRows,
             'format' => $format,
         ], 'Report generated', 201);
         break;

@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Wifi, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -6,6 +7,8 @@ import { getAppBasePath } from '../../utils/appBase';
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,7 +21,8 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      window.location.href = getAppBasePath();
+      const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
+      navigate(from && from !== '/login' ? from : getAppBasePath(), { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

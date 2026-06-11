@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { DarkModeProvider } from './context/DarkModeContext';
@@ -22,6 +22,7 @@ import { getRouterBasename } from './utils/appBase';
 const routerBasename = getRouterBasename();
 
 function PrivateRoutes() {
+  const location = useLocation();
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -35,7 +36,7 @@ function PrivateRoutes() {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
 
   return (
     <Layout>
