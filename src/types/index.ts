@@ -31,7 +31,7 @@ export interface Site {
   ispProvider: string;
   lastMileTech: string;
   bwDownload: number;
-  status: 'UP' | 'DOWN' | 'PARTIAL' | 'PENDING' | 'COMPLETED' | 'ONGOING' | 'PLANNED';
+  status: 'UP' | 'DOWN' | 'PARTIAL' | 'PENDING' | 'DECOMMISSIONED' | 'COMPLETED' | 'ONGOING' | 'PLANNED';
   lastUpdated: string;
   dailyUsers?: number;
 }

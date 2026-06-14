@@ -21,10 +21,10 @@ interface ProjectWithStats {
   color: string;
   completion_rate: number;
   total_sites: number;
-  completed_sites: number;
-  ongoing_sites: number;
-  planned_sites: number;
-  delayed_sites: number;
+  completed_entries: number;
+  ongoing_entries: number;
+  planned_entries: number;
+  delayed_entries: number;
 }
 
 export default function DictProjects() {
@@ -87,10 +87,10 @@ export default function DictProjects() {
     color: p.color,
     completion_rate: p.completionRate,
     total_sites: p.totalSites,
-    completed_sites: 0,
-    ongoing_sites: 0,
-    planned_sites: 0,
-    delayed_sites: 0,
+    completed_entries: 0,
+    ongoing_entries: 0,
+    planned_entries: 0,
+    delayed_entries: 0,
   }));
 
   const activeProject = selectedProject ? milestoneProjects.find(p => p.id === selectedProject) : null;
@@ -183,19 +183,19 @@ export default function DictProjects() {
 
               <div className="grid grid-cols-4 gap-2 text-center">
                 <div className="bg-emerald-50 rounded-lg p-2">
-                  <p className="text-sm font-bold text-emerald-600">{p.completed_sites}</p>
+                  <p className="text-sm font-bold text-emerald-600">{p.completed_entries ?? 0}</p>
                   <p className="text-[9px] text-emerald-500 uppercase">Done</p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-2">
-                  <p className="text-sm font-bold text-blue-600">{p.ongoing_sites}</p>
+                  <p className="text-sm font-bold text-blue-600">{p.ongoing_entries ?? 0}</p>
                   <p className="text-[9px] text-blue-500 uppercase">Active</p>
                 </div>
                 <div className="bg-amber-50 rounded-lg p-2">
-                  <p className="text-sm font-bold text-amber-600">{p.planned_sites}</p>
+                  <p className="text-sm font-bold text-amber-600">{p.planned_entries ?? 0}</p>
                   <p className="text-[9px] text-amber-500 uppercase">Planned</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-2">
-                  <p className="text-sm font-bold text-red-600">{p.delayed_sites}</p>
+                  <p className="text-sm font-bold text-red-600">{p.delayed_entries ?? 0}</p>
                   <p className="text-[9px] text-red-500 uppercase">Delayed</p>
                 </div>
               </div>
@@ -247,20 +247,21 @@ export default function DictProjects() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Accomplishment by Status</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Sites by Status</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={[
-              { name: 'Completed', value: projectSites.filter(s => s.status === 'COMPLETED').length, color: '#22c55e' },
-              { name: 'Ongoing', value: projectSites.filter(s => s.status === 'ONGOING').length, color: '#3b82f6' },
-              { name: 'Planned', value: projectSites.filter(s => s.status === 'PLANNED').length, color: '#f59e0b' },
+              { name: 'Up', value: projectSites.filter(s => s.status === 'UP').length, color: '#22c55e' },
+              { name: 'Partial', value: projectSites.filter(s => s.status === 'PARTIAL').length, color: '#f59e0b' },
+              { name: 'Down', value: projectSites.filter(s => s.status === 'DOWN').length, color: '#ef4444' },
               { name: 'Pending', value: projectSites.filter(s => s.status === 'PENDING').length, color: '#6b7280' },
+              { name: 'Decomm.', value: projectSites.filter(s => s.status === 'DECOMMISSIONED').length, color: '#94a3b8' },
             ]}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
               <YAxis stroke="#94a3b8" fontSize={11} />
               <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
               <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {['#22c55e', '#3b82f6', '#f59e0b', '#6b7280'].map((c, i) => <Cell key={i} fill={c} />)}
+                {['#22c55e', '#f59e0b', '#ef4444', '#6b7280', '#94a3b8'].map((c, i) => <Cell key={i} fill={c} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -287,10 +288,11 @@ export default function DictProjects() {
             className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-dict-blue"
           >
             <option value="all">All Status</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="ONGOING">Ongoing</option>
-            <option value="PLANNED">Planned</option>
+            <option value="UP">Up</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="DOWN">Down</option>
             <option value="PENDING">Pending</option>
+            <option value="DECOMMISSIONED">Decommissioned</option>
           </select>
         </div>
 
@@ -404,7 +406,12 @@ function StatusBadge({ status }: { status: string }) {
     COMPLETED: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: <CheckCircle2 size={10} /> },
     ONGOING: { bg: 'bg-blue-100', text: 'text-blue-700', icon: <Clock size={10} /> },
     PLANNED: { bg: 'bg-amber-100', text: 'text-amber-700', icon: <Calendar size={10} /> },
+    DELAYED: { bg: 'bg-red-100', text: 'text-red-700', icon: <Circle size={10} /> },
     PENDING: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-200', icon: <Circle size={10} /> },
+    UP: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: <CheckCircle2 size={10} /> },
+    PARTIAL: { bg: 'bg-amber-100', text: 'text-amber-700', icon: <Clock size={10} /> },
+    DOWN: { bg: 'bg-red-100', text: 'text-red-700', icon: <Circle size={10} /> },
+    DECOMMISSIONED: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-500 dark:text-slate-400', icon: <Circle size={10} /> },
   };
   const c = config[status] || config.PENDING;
   return (
@@ -422,7 +429,6 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
   const toast = useToast();
 
   const loadMilestones = useCallback(() => {
-    setLoading(true);
     api.get<typeof milestones>('milestones.list', { project_id: projectId })
       .then(res => { setMilestones(res.data); setLoading(false); })
       .catch(() => setLoading(false));
@@ -519,12 +525,10 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
   const [loadingEntries, setLoadingEntries] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'entries') {
-      setLoadingEntries(true);
-      api.get<DictProjectEntry[]>(`entries.list`, { site_id: site.id, project_id: projectId })
-        .then(res => { setEntries(res.data); setLoadingEntries(false); })
-        .catch(() => setLoadingEntries(false));
-    }
+    if (activeTab !== 'entries') return;
+    api.get<DictProjectEntry[]>(`entries.list`, { site_id: site.id, project_id: projectId })
+      .then(res => { setEntries(res.data); setLoadingEntries(false); })
+      .catch(() => setLoadingEntries(false));
   }, [activeTab, site.id, projectId]);
 
   return (

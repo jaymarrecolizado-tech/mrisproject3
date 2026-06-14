@@ -9,6 +9,7 @@ vi.mock('../../src/services/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
   },
+  setAuthHandler: vi.fn(),
 }));
 
 const mockUser = {
@@ -208,5 +209,106 @@ describe('AuthContext', () => {
     await waitFor(() => expect(hookResult!.isLoading).toBe(false));
 
     expect(hookResult!.hasProjectAccess(999, 'admin')).toBe(true);
+  });
+
+  it('refreshToken updates token on success', async () => {
+    localStorage.setItem('mris_token', 'old-token');
+    localStorage.setItem('mris_user', JSON.stringify(mockUser));
+    (api.get as any).mockResolvedValue({ data: mockUser });
+    (api.post as any).mockResolvedValue({ data: { token: 'refreshed-token' } });
+
+    let hookResult: ReturnType<typeof useAuth> | null = null;
+    
+    renderWithAuth(<TestComponent onResult={r => { hookResult = r; }} />);
+
+    await waitFor(() => expect(hookResult!.isLoading).toBe(false));
+
+    let result = false;
+    await act(async () => {
+      result = await hookResult!.refreshToken();
+    });
+
+    expect(result).toBe(true);
+    expect(hookResult!.token).toBe('refreshed-token');
+    expect(localStorage.getItem('mris_token')).toBe('refreshed-token');
+    expect(api.post).toHaveBeenCalledWith('auth.refresh');
+  });
+
+  it('refreshToken clears auth on failure', async () => {
+    localStorage.setItem('mris_token', 'old-token');
+    localStorage.setItem('mris_user', JSON.stringify(mockUser));
+    (api.get as any).mockResolvedValue({ data: mockUser });
+    (api.post as any).mockRejectedValue(new Error('Token expired'));
+
+    let hookResult: ReturnType<typeof useAuth> | null = null;
+    
+    renderWithAuth(<TestComponent onResult={r => { hookResult = r; }} />);
+
+    await waitFor(() => expect(hookResult!.isLoading).toBe(false));
+
+    let result = true;
+    await act(async () => {
+      result = await hookResult!.refreshToken();
+    });
+
+    expect(result).toBe(false);
+    expect(hookResult!.user).toBeNull();
+    expect(hookResult!.token).toBeNull();
+    expect(localStorage.getItem('mris_token')).toBeNull();
+    expect(localStorage.getItem('mris_user')).toBeNull();
+  });
+
+  it('changePassword calls API and refreshes token', async () => {
+    localStorage.setItem('mris_token', 'test-token');
+    localStorage.setItem('mris_user', JSON.stringify(mockUser));
+    (api.get as any).mockResolvedValue({ data: mockUser });
+    (api.post as any)
+      .mockResolvedValueOnce({ success: true }) // change-password
+      .mockResolvedValueOnce({ data: { token: 'new-token' } }); // refresh
+
+    let hookResult: ReturnType<typeof useAuth> | null = null;
+    
+    renderWithAuth(<TestComponent onResult={r => { hookResult = r; }} />);
+
+    await waitFor(() => expect(hookResult!.isLoading).toBe(false));
+
+    await act(async () => {
+      await hookResult!.changePassword('oldpass', 'newpass123');
+    });
+
+    expect(api.post).toHaveBeenNthCalledWith(1, 'auth.change-password', { current_password: 'oldpass', new_password: 'newpass123' });
+    expect(api.post).toHaveBeenNthCalledWith(2, 'auth.refresh');
+  });
+
+  it('forgotPassword calls API', async () => {
+    (api.post as any).mockResolvedValue({ success: true });
+
+    let hookResult: ReturnType<typeof useAuth> | null = null;
+    
+    renderWithAuth(<TestComponent onResult={r => { hookResult = r; }} />);
+
+    await waitFor(() => expect(hookResult!.isLoading).toBe(false));
+
+    await act(async () => {
+      await hookResult!.forgotPassword('test@example.com');
+    });
+
+    expect(api.post).toHaveBeenCalledWith('auth.forgot-password', { email: 'test@example.com' });
+  });
+
+  it('resetPassword calls API', async () => {
+    (api.post as any).mockResolvedValue({ success: true });
+
+    let hookResult: ReturnType<typeof useAuth> | null = null;
+    
+    renderWithAuth(<TestComponent onResult={r => { hookResult = r; }} />);
+
+    await waitFor(() => expect(hookResult!.isLoading).toBe(false));
+
+    await act(async () => {
+      await hookResult!.resetPassword('reset-token', 'test@example.com', 'newpass123');
+    });
+
+    expect(api.post).toHaveBeenCalledWith('auth.reset-password', { token: 'reset-token', email: 'test@example.com', new_password: 'newpass123' });
   });
 });

@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X, Loader2 } from 'lucide-react';
+import { Filter, Layers, Wifi, ShieldCheck, Database, Building2, ShieldAlert, Landmark, IdCard, Network, Radio, X, Loader2, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { projects as mockProjects, sites as mockSites } from '../data/mockDataDev';
 import { api } from '../services/api';
@@ -237,6 +237,10 @@ export default function MapView() {
   const [apiSites, setApiSites] = useState<Site[]>([]);
   const [apiProjects, setApiProjects] = useState<typeof mockProjects>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Distinguish "loaded successfully with no data" from "not loaded / failed".
+  // On failure we fall back to mock data (dev/demo); on success we show real data,
+  // even when empty, so users see a real empty state instead of fake markers.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -262,6 +266,7 @@ export default function MapView() {
       setApiSites(sites);
       setApiProjects(projs);
       setSelectedProjects(projs.map(p => p.id));
+      setLoadFailed(false);
       setIsLoading(false);
     }).catch(() => {
       setApiSites(mockSites);
@@ -272,13 +277,17 @@ export default function MapView() {
         completionRate: p.completionRate, totalSites: p.totalSites,
       })));
       setSelectedProjects(mockProjects.filter(p => p.type === 'milestone').map(p => p.id));
+      setLoadFailed(true);
       setIsLoading(false);
     });
   }, [regionFilter]);
 
-  const sourceProjects = apiProjects.length > 0 ? apiProjects : mockProjects;
+  // Only fall back to mock data when the API call failed. A successful response
+  // with zero sites must render an empty state, not demo markers.
+  const sourceProjects = loadFailed ? mockProjects : apiProjects;
   const projects = useMemo(() => withUniqueProjectColors(sourceProjects), [sourceProjects]);
-  const sites = apiSites.length > 0 ? apiSites : mockSites;
+  const sites = loadFailed ? mockSites : apiSites;
+  const isEmpty = !loadFailed && sites.length === 0;
 
   const filteredSites = useMemo(() => {
     return sites.filter(s => {
@@ -536,6 +545,19 @@ export default function MapView() {
         )}
       </AnimatePresence>
 
+      {/* Empty state — real API load returned no geolocated sites */}
+      {isEmpty && (
+        <div className="absolute inset-0 z-[1500] flex items-center justify-center pointer-events-none px-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg p-6 text-center max-w-sm pointer-events-auto">
+            <MapPin size={28} className="mx-auto mb-3 text-slate-400" />
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">No sites to display</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {`No geolocated site data is available${regionFilter ? ' for the selected region' : ''}. Import sites with coordinates to populate the map.`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Map */}
       <MapContainer
         center={[17.0, 121.5]}
@@ -578,7 +600,7 @@ export default function MapView() {
                     }
                   },
                 }}
-                // @ts-ignore — custom property for cluster icon coloring
+                // @ts-expect-error — custom property for cluster icon coloring (not in Marker props)
                 projectId={site.projectId}
               >
                 <Popup>

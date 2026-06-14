@@ -29,6 +29,29 @@ function getToken(): string | null {
   return localStorage.getItem('mris_token');
 }
 
+// --- Auth refresh registry ---
+// AuthContext registers its refreshToken() here so the request layer can
+// silently refresh an expired access token on a 401 without creating a
+// circular import (api.ts <- AuthContext <- api.ts).
+let refreshHandler: (() => Promise<boolean>) | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
+
+export function setAuthHandler(refresh: (() => Promise<boolean>) | null): void {
+  refreshHandler = refresh;
+  refreshInFlight = null;
+}
+
+async function tryRefresh(): Promise<boolean> {
+  if (!refreshHandler) return false;
+  // Coalesce concurrent 401s into a single refresh attempt.
+  if (!refreshInFlight) {
+    refreshInFlight = refreshHandler().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 function buildUrl(action: string, params?: Record<string, string | number | null>): string {
   const searchParams = new URLSearchParams({ action });
   if (params) {
@@ -41,7 +64,7 @@ function buildUrl(action: string, params?: Record<string, string | number | null
   return `${API_BASE}/index.php?${searchParams.toString()}`;
 }
 
-async function request<T>(action: string, method: string = 'GET', body?: unknown, params?: Record<string, string | number | null>): Promise<T> {
+async function request<T>(action: string, method: string = 'GET', body?: unknown, params?: Record<string, string | number | null>, isRetry = false): Promise<T> {
   const url = buildUrl(action, params);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -66,7 +89,14 @@ async function request<T>(action: string, method: string = 'GET', body?: unknown
 
   if (!response.ok) {
     if (response.status === 401) {
-      // Clear all auth state on unauthorized
+      // Attempt a single silent token refresh, then retry the original request once.
+      // Skip auth.login/auth.refresh/auth.logout so a bad credential or a dead
+      // refresh token can never trigger a refresh loop.
+      const canRefresh = !isRetry && action !== 'auth.login' && action !== 'auth.refresh' && action !== 'auth.logout';
+      if (canRefresh && (await tryRefresh())) {
+        return request<T>(action, method, body, params, true);
+      }
+      // Refresh not possible, failed, or already retried — clear auth and redirect.
       localStorage.removeItem('mris_token');
       localStorage.removeItem('mris_user');
       sessionStorage.clear();

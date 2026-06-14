@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Wifi, Search, Calendar,
   Upload, Download, Plus, ChevronLeft, ChevronRight,
-  Activity, ArrowUpDown, Loader2
+  Activity, ArrowUpDown, Loader2, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -457,24 +457,46 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void }) {
-  const [recentLogs, setRecentLogs] = useState<Array<{ date: string; users: number; bandwidth: number; loggedByName: string }>>([]);
+  const toast = useToast();
+  const { hasPermission } = useAuth();
+  const canDeleteLogs = hasPermission('logs.edit');
+  const [recentLogs, setRecentLogs] = useState<Array<{ id: number; date: string; users: number; bandwidth: number; loggedByName: string }>>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    setLoadingLogs(true);
+  const fetchLogs = useCallback(() => {
     api.get<any[]>('logs.site-logs', { site_id: site.id, days: 14 })
       .then((res) => {
         const mapped = (res.data || []).map((l: any) => ({
+          id: Number(l.id),
           date: l.log_date || l.date || '',
           users: Number(l.total_unique_users ?? l.users ?? 0),
           bandwidth: Number(l.bandwidth_utilization ?? l.bandwidth ?? 0),
           loggedByName: l.logged_by_name || '',
-        })).sort((a: any, b: any) => a.date.localeCompare(b.date));
+        })).sort((a, b) => a.date.localeCompare(b.date));
         setRecentLogs(mapped);
       })
       .catch(() => setRecentLogs([]))
       .finally(() => setLoadingLogs(false));
   }, [site.id]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  const handleDeleteLog = async (logId: number) => {
+    if (!window.confirm('Delete this daily log? This cannot be undone.')) return;
+    setDeletingId(logId);
+    try {
+      await api.delete('logs.delete', logId);
+      toast.success('Log deleted');
+      fetchLogs();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete log');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <motion.div
@@ -529,15 +551,29 @@ function SiteDetailModal({ site, onClose }: { site: Site; onClose: () => void })
                       <th className="text-right py-1.5 font-medium">Users</th>
                       <th className="text-right py-1.5 font-medium">BW %</th>
                       <th className="text-right py-1.5 font-medium">Logged By</th>
+                      {canDeleteLogs && <th className="text-right py-1.5 font-medium">Action</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {recentLogs.slice().reverse().map((l) => (
-                      <tr key={l.date} className="text-slate-600 dark:text-slate-300">
+                      <tr key={l.id} className="text-slate-600 dark:text-slate-300">
                         <td className="py-1">{new Date(l.date).toLocaleDateString()}</td>
                         <td className="text-right py-1">{l.users.toLocaleString()}</td>
                         <td className="text-right py-1">{l.bandwidth}%</td>
                         <td className="text-right py-1 text-slate-400 dark:text-slate-500">{l.loggedByName || '—'}</td>
+                        {canDeleteLogs && (
+                          <td className="text-right py-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLog(l.id)}
+                              disabled={deletingId === l.id}
+                              title="Delete log"
+                              className="text-slate-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                            >
+                              {deletingId === l.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
