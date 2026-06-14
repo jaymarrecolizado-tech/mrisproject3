@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Wifi, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -82,6 +82,12 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 required
               />
+            </div>
+
+            <div className="flex justify-end -mt-2">
+              <Link to="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                Forgot password?
+              </Link>
             </div>
 
             <button

@@ -17,7 +17,12 @@ switch ($action) {
             'SELECT p.*,
                     (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id) as total_sites,
                     (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id AND s.status = "UP") as active_sites,
-                    (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id AND s.status = "DOWN") as down_sites
+                    (SELECT COUNT(*) FROM sites s WHERE s.project_id = p.id AND s.status = "DOWN") as down_sites,
+                    (SELECT COUNT(*) FROM dict_project_entries e WHERE e.project_id = p.id AND e.status = "COMPLETED") as completed_entries,
+                    (SELECT COUNT(*) FROM dict_project_entries e WHERE e.project_id = p.id AND e.status = "ONGOING") as ongoing_entries,
+                    (SELECT COUNT(*) FROM dict_project_entries e WHERE e.project_id = p.id AND e.status = "PLANNED") as planned_entries,
+                    (SELECT COUNT(*) FROM dict_project_entries e WHERE e.project_id = p.id AND e.status = "DELAYED") as delayed_entries,
+                    COALESCE(ROUND((SELECT AVG(accomplishment_percent) FROM dict_project_entries e WHERE e.project_id = p.id), 2), 0) as completion_rate
              FROM projects p
              WHERE p.is_active = 1
              ORDER BY p.code'

@@ -6,11 +6,11 @@ Handle login, token refresh, logout, password reset flow, and authenticated user
 
 ## Status
 
-Draft
+Verified — all flows implemented, lint + type-check clean, 16 auth tests + 3 interceptor tests pass.
 
 ## Route and Permission
 
-- Route: `/login`
+- Route: `/login` (public), `/forgot-password` (public), `/reset-password` (public)
 - Required permission: public
 - Related API actions: `auth.login`, `auth.me`, `auth.logout`, `auth.refresh`, `auth.change-password`, `auth.forgot-password`, `auth.reset-password`
 
@@ -18,66 +18,85 @@ Draft
 
 ### Frontend
 
-- `src/pages/auth/LoginPage.tsx`
-- `src/context/AuthContext.tsx`
-- `src/components/ProtectedRoute.tsx`
+- `src/pages/auth/LoginPage.tsx` — login form + "Forgot password?" link
+- `src/pages/auth/ForgotPasswordPage.tsx` — email entry → reset instructions
+- `src/pages/auth/ResetPasswordPage.tsx` — token + new password, aggregate validation, inline success + Sign-in link
+- `src/context/AuthContext.tsx` — session state, login/logout, manual + registered refresh, change/forgot/reset password, permission checks
+- `src/components/ProtectedRoute.tsx` — auth + permission gate
+- `src/services/api.ts` — request layer with 401 auto-refresh interceptor
 
 ### Backend
 
-- `api/routes/auth.php`
-- `api/middleware/Auth.php`
-- `api/helpers/JWT.php`
-- `api/helpers/RateLimiter.php`
+- `api/routes/auth.php` — all `auth.*` actions
+- `api/middleware/Auth.php` — authenticate + permission middleware
+- `api/helpers/JWT.php` — access/refresh token issue + verify
+- `api/helpers/RateLimiter.php` — login attempt throttling
 
 ### Database
 
-- `database/schema.sql`
+- `database/schema.sql` — `users`, `password_resets`, `refresh_tokens`
 
 ## Function Map
 
 | Function / Area | File | Status | What Exists | What Is Missing | Next Action | Acceptance Criteria |
 | --- | --- | --- | --- | --- | --- | --- |
-| Login form | `src/pages/auth/LoginPage.tsx` | Draft | Login UI exists | Needs function-level behavior map | Document required fields, validation, loading, and error states | Form validates credentials and shows clear errors |
-| Auth context | `src/context/AuthContext.tsx` | In Progress | User/session state exists | React Hooks lint issue from `useEffect(() => { loadUser(); }, [loadUser])` | Refactor initial load so state updates are not called directly inside effect body | `npm run lint` has no AuthContext lint errors |
-| Protected routes | `src/components/ProtectedRoute.tsx` | Draft | Redirects unauthorized users to `/` | No explicit forbidden UI | Add clear access-denied behavior if needed | Unauthorized users get predictable feedback |
-| Token refresh | `src/context/AuthContext.tsx` | Draft | Refresh behavior exists | Needs explicit status | Add function-level spec and tests | Session remains valid when refresh succeeds |
-| Logout | `src/context/AuthContext.tsx` | Draft | Logout behavior exists | Needs explicit status | Add spec and tests | Logout clears session and redirects correctly |
+| Login form | `src/pages/auth/LoginPage.tsx` | Verified | Email/password, validation, loading/error, "Forgot password?" link | None | N/A | Form validates credentials and shows clear errors |
+| Auth context | `src/context/AuthContext.tsx` | Verified | User/session state, login, logout, refresh, change/forgot/reset password, permission checks | None | N/A | Lint-clean; session loads before protected routes render |
+| Protected routes | `src/components/ProtectedRoute.tsx` | Verified | Redirects unauthenticated → `/login` (with return path); denies missing permission → `/` | None | N/A | Unauthorized users get predictable feedback |
+| Token refresh | `src/context/AuthContext.tsx` + `src/services/api.ts` | Verified | `refreshToken()` (manual) **and** automatic refresh-on-401 interceptor in `api.ts` (retry-once, loop-guarded) | None | N/A | Session stays valid when refresh succeeds; clears when it fails |
+| Logout | `src/context/AuthContext.tsx` | Verified | Calls `auth.logout`, clears localStorage, redirects to login | None | N/A | Logout clears session and redirects |
+| Change password | `AuthContext.tsx` / `Profile.tsx` | Verified | `changePassword()` + UI in Profile | None | N/A | Validates current password + requirements, then refreshes token |
+| Forgot password | `ForgotPasswordPage.tsx` | Verified | Page at `/forgot-password`, routed, linked from login, email validation + success state | None | N/A | Email submission triggers reset flow |
+| Reset password | `ResetPasswordPage.tsx` | Verified | Page at `/reset-password`, token + password entry, **aggregate validation**, inline "Password reset successfully" + Sign-in link | None | N/A | Token + new password resets account |
+
+## Completed Work
+
+- ✅ AuthContext lint error resolved (`useRef` initial-load pattern)
+- ✅ `refreshToken()`, `changePassword()`, `forgotPassword()`, `resetPassword()` with tests
+- ✅ `ForgotPasswordPage` + `ResetPasswordPage` created, routed in `App.tsx`, and linked from `LoginPage`
+- ✅ `ResetPasswordPage` reworked to aggregate validation + inline success (matches its test + ForgotPassword UX)
+- ✅ **401 auto-refresh interceptor** in `api.ts`: on 401, attempts one silent refresh via registered handler, retries the original request once; skips `auth.login`/`auth.refresh`/`auth.logout` to prevent loops; falls back to clear+redirect on failure. Concurrent 401s coalesce into a single refresh.
+- ✅ AuthContext registers its `refreshToken` with `setAuthHandler` on mount (avoids circular import)
+- ✅ 3 new interceptor tests (refresh+retry, no-refresh-on-login, clear-on-refresh-failure)
+- ✅ All 16 AuthContext + PasswordReset tests pass; full suite 44/44
 
 ## Missing Work
 
-- Resolve current AuthContext lint error.
-- Define function-level specs for login validation, refresh, logout, and password reset.
-- Add tests for AuthContext permission loading and token refresh.
-- Confirm expected unauthorized-route behavior.
+- Manual end-to-end verification in a browser (login, logout, token-expiry refresh, change/forgot/reset password).
+- (Optional) Forbidden UI for partially-permissioned routes — currently `ProtectedRoute` redirects to `/`.
 
 ## Next Planned Work
 
-1. Fix AuthContext lint issue.
-2. Finish authentication function map.
-3. Add tests for auth state transitions.
+1. Manual browser verification of the full auth flow.
+2. (Optional) Dedicated access-denied screen for permission denials.
 
 ## Acceptance Criteria
 
-- User can log in with valid credentials.
-- Invalid credentials show a clear error.
-- Authenticated user loads before protected routes render.
-- Expired session refreshes correctly.
-- Logout clears local auth state.
-- AuthContext passes lint.
+- ✅ User can log in with valid credentials.
+- ✅ Invalid credentials show a clear error.
+- ✅ Authenticated user loads before protected routes render.
+- ✅ Expired access token is silently refreshed (interceptor); session clears only when refresh fails.
+- ✅ Logout clears local auth state.
+- ✅ AuthContext passes lint.
+- ✅ Change password validates current password and requirements.
+- ✅ Forgot password triggers the reset flow (and is reachable from login).
+- ✅ Reset password with a valid token updates the password (inline success + sign-in).
 
 ## Tests and Verification
 
-- [ ] `npm run lint` passes
-- [ ] AuthContext tests pass
-- [ ] Login page validation tests pass
-- [ ] Manual login/logout flow verified
-- [ ] Permission loading verified
+- ✅ `npm run lint` passes for auth files (0 errors; pre-existing `any`/`react-refresh` warnings remain)
+- ✅ TypeScript type-check passes (`tsc --noEmit`)
+- ✅ AuthContext tests pass (14) + PasswordReset page tests pass (2)
+- ✅ API interceptor tests pass (3): refresh+retry, no-refresh-on-login, clear-on-refresh-failure
+- [ ] Login page validation tests (optional)
+- [ ] Manual login/logout/refresh/password-change flow verified in browser
 
 ## Risks and Dependencies
 
 - ProtectedRoute depends on AuthContext loading correctly.
-- Reports visibility depends on permission loading.
+- Auto-refresh depends on the backend `auth.refresh` endpoint + a valid refresh token.
+- Password reset depends on email delivery (logged to `error_log` in dev).
 
 ## Definition of Done for This Feature
 
-Authentication is done only when login, session loading, refresh, logout, and protected-route behavior are specified, implemented, lint-clean, and tested.
+Authentication is done only when login, session loading, refresh, logout, password reset, and protected-route behavior are specified, implemented, lint-clean, and tested. ✅ All implemented + tested; manual browser verification remains.

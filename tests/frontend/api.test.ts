@@ -1,4 +1,4 @@
-import { api } from '../../src/services/api';
+import { api, setAuthHandler } from '../../src/services/api';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 describe('API Service', () => {
@@ -146,14 +146,60 @@ describe('API Service', () => {
     localStorage.setItem('mris_token', 'test-token');
     localStorage.setItem('mris_user', JSON.stringify({ id: 1 }));
     sessionStorage.setItem('test', 'value');
-    
+
     (global.fetch as any).mockResolvedValue(mockResponse({ message: 'Unauthorized' }, false, 401));
 
     await expect(api.get('test.action')).rejects.toThrow('Unauthorized');
-    
+
     expect(localStorage.getItem('mris_token')).toBeNull();
     expect(localStorage.getItem('mris_user')).toBeNull();
     expect(sessionStorage.getItem('test')).toBeNull();
+  });
+
+  it('silently refreshes token and retries the request on 401', async () => {
+    localStorage.setItem('mris_token', 'expired-token');
+    const refresh = vi.fn().mockResolvedValue(true);
+    setAuthHandler(refresh);
+
+    (global.fetch as any)
+      .mockResolvedValueOnce(mockResponse({ message: 'Unauthorized' }, false, 401))
+      .mockResolvedValueOnce(mockResponse(mockSuccess({ id: 7 })));
+
+    const result = await api.get('test.action');
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result).toEqual(mockSuccess({ id: 7 }));
+    // Successful refresh must NOT clear the session.
+    expect(localStorage.getItem('mris_token')).toBe('expired-token');
+
+    setAuthHandler(null);
+  });
+
+  it('does not attempt refresh on auth.login 401 (avoids loop)', async () => {
+    const refresh = vi.fn().mockResolvedValue(true);
+    setAuthHandler(refresh);
+
+    (global.fetch as any).mockResolvedValue(mockResponse({ message: 'Invalid credentials' }, false, 401));
+
+    await expect(api.post('auth.login', { email: 'x', password: 'y' })).rejects.toThrow('Invalid credentials');
+    expect(refresh).not.toHaveBeenCalled();
+
+    setAuthHandler(null);
+  });
+
+  it('clears auth when refresh fails on 401', async () => {
+    localStorage.setItem('mris_token', 'expired-token');
+    const refresh = vi.fn().mockResolvedValue(false); // refresh token dead
+    setAuthHandler(refresh);
+
+    (global.fetch as any).mockResolvedValue(mockResponse({ message: 'Unauthorized' }, false, 401));
+
+    await expect(api.get('test.action')).rejects.toThrow('Unauthorized');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('mris_token')).toBeNull();
+
+    setAuthHandler(null);
   });
 
   it('buildUrl includes params', async () => {

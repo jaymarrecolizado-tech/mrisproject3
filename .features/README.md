@@ -44,11 +44,11 @@ A feature is not `Done` until:
 
 | Folder | Feature | Status |
 | --- | --- | --- |
-| `01-authentication` | Authentication and session handling | Draft |
-| `02-dashboard` | Dashboard analytics | Draft |
-| `03-map` | Map and geospatial project view | Draft |
-| `04-free-wifi` | Free WiFi daily logs | Draft |
-| `05-projects` | DICT projects | Draft |
+| `01-authentication` | Authentication and session handling | Verified |
+| `02-dashboard` | Dashboard analytics | Verified |
+| `03-map` | Map and geospatial project view | Implemented |
+| `04-free-wifi` | Free WiFi daily logs | Implemented |
+| `05-projects` | DICT projects | Implemented |
 | `06-sites` | Sites and site management | Draft |
 | `07-photos` | Site photos | Draft |
 | `08-milestones` | Project milestones | Draft |
