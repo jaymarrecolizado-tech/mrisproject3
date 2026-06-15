@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { ImagePlus, Trash2, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { getAppBasePath } from '../utils/appBase';
 
 interface Photo {
   id: number;
@@ -11,10 +14,18 @@ interface Photo {
   created_at: string;
 }
 
-export default function SitePhotos({ siteId, canEdit }: { siteId: string | number; canEdit: boolean }) {
+export default function SitePhotos({ siteId }: { siteId: string | number }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { hasPermission } = useAuth();
+  const toast = useToast();
+
+  // Match the API gates exactly: upload requires sites.edit, delete requires sites.manage.
+  // Previously callers passed an unrelated flag (entries.create, or hardcoded true), so
+  // users could see buttons that silently 403'd on click.
+  const canUpload = hasPermission('sites.edit');
+  const canDelete = hasPermission('sites.manage');
 
   useEffect(() => {
     api.get<Photo[]>('photos.list', { site_id: siteId })
@@ -30,7 +41,10 @@ export default function SitePhotos({ siteId, canEdit }: { siteId: string | numbe
       await api.upload('photos.upload', file, { site_id: String(siteId) });
       const res = await api.get<Photo[]>('photos.list', { site_id: siteId });
       setPhotos(res.data);
-    } catch { /* ignore */ }
+      toast.success('Photo uploaded');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+    }
     setIsUploading(false);
     if (fileRef.current) fileRef.current.value = '';
   };
@@ -39,14 +53,17 @@ export default function SitePhotos({ siteId, canEdit }: { siteId: string | numbe
     try {
       await api.delete('photos.delete', photoId);
       setPhotos(prev => prev.filter(p => p.id !== photoId));
-    } catch { /* ignore */ }
+      toast.success('Photo deleted');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
+    }
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold text-slate-500 uppercase">Photos ({photos.length})</p>
-        {canEdit && (
+        {canUpload && (
           <>
             <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
             <button
@@ -67,11 +84,11 @@ export default function SitePhotos({ siteId, canEdit }: { siteId: string | numbe
           {photos.map(photo => (
             <div key={photo.id} className="relative group">
               <img
-                src={`/${photo.file_path}`}
+                src={`${getAppBasePath()}${photo.file_path}`}
                 alt={photo.caption || photo.file_name}
                 className="w-full h-20 object-cover rounded-lg border border-slate-200"
               />
-              {canEdit && (
+              {canDelete && (
                 <button
                   onClick={() => handleDelete(photo.id)}
                   className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"

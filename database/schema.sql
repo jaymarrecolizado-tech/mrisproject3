@@ -384,6 +384,7 @@ CREATE TABLE site_photos (
   site_id INT UNSIGNED NOT NULL,
   file_path VARCHAR(500) NOT NULL,
   file_name VARCHAR(255) NOT NULL,
+  original_name VARCHAR(255),
   file_size INT UNSIGNED,
   mime_type VARCHAR(50),
   caption VARCHAR(255),

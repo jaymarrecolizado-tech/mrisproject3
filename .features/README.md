@@ -50,7 +50,7 @@ A feature is not `Done` until:
 | `04-free-wifi` | Free WiFi daily logs | Implemented |
 | `05-projects` | DICT projects | Verified |
 | `06-sites` | Sites and site management | Implemented |
-| `07-photos` | Site photos | Draft |
+| `07-photos` | Site photos | Implemented |
 | `08-milestones` | Project milestones | Draft |
 | `09-entries` | DICT project entries | Draft |
 | `10-reports` | Report generation and downloads | In Progress |

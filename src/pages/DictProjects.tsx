@@ -653,7 +653,7 @@ function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry 
           )}
 
           {activeTab === 'photos' && (
-            <SitePhotos siteId={site.id} canEdit={canCreateEntry} />
+            <SitePhotos siteId={site.id} />
           )}
         </div>
       </motion.div>
