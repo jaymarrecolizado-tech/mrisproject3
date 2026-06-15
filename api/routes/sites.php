@@ -118,6 +118,18 @@ switch ($action) {
             ApiResponse::error('Project ID and site code are required', 400);
             exit;
         }
+        // Resolve + validate the project: accept a numeric id or a project code (e.g. 'fw').
+        // Without this, an unknown project_id trips a SQL FK error (HTTP 500) instead of a
+        // clean 400. Mirrors the code-resolution already used by sites.list.
+        if (!is_numeric($data['project_id'])) {
+            $resolved = $db->fetchColumn('SELECT id FROM projects WHERE LOWER(code) = ?', [strtolower((string)$data['project_id'])]);
+            $data['project_id'] = $resolved ?: 0;
+        }
+        if (!$db->fetchOne('SELECT id FROM projects WHERE id = ?', [(int)$data['project_id']])) {
+            ApiResponse::error('Unknown project_id: ' . $input['project_id'], 400);
+            exit;
+        }
+        $data['project_id'] = (int)$data['project_id'];
         $newId = $db->insert('sites', $data);
         ApiResponse::success(['id' => $newId], 'Site created', 201);
         break;
@@ -274,8 +286,58 @@ switch ($action) {
 
         if ($ext === 'csv') {
             $handle = fopen($file['tmp_name'], 'r');
-            $header = fgetcsv($handle); // skip header
+            // Header-aware import: map columns by normalized header name. Previously the
+            // importer read columns positionally (col 0 = project_id, ...), but sites.export
+            // emits [ID, Project Code, Site Code, Location, ...] — so re-importing an export
+            // shifted every column and mis-resolved the project. Mapping by header name makes
+            // an exported file round-trip correctly and also tolerates a plain template.
+            $header = fgetcsv($handle);
+            if (!$header) {
+                fclose($handle);
+                ApiResponse::error('CSV has no header row', 400);
+                exit;
+            }
+
+            $columnMap = [
+                'sitecode'     => 'site_code',
+                'locationname' => 'location_name',
+                'location'     => 'location_name',
+                'sitename'     => 'site_name',
+                'barangay'     => 'barangay',
+                'municipality' => 'municipality',
+                'province'     => 'province',
+                'district'     => 'district',
+                'islandgroup'  => 'island_group',
+                'latitude'     => 'latitude',
+                'lat'          => 'latitude',
+                'longitude'    => 'longitude',
+                'long'         => 'longitude',
+                'lng'          => 'longitude',
+                'sitetype'     => 'site_type',
+                'isp'          => 'isp_provider',
+                'ispprovider'  => 'isp_provider',
+                'lastmiletech' => 'last_mile_tech',
+                'bandwidth'    => 'bw_download',
+                'bwdownload'   => 'bw_download',
+                'bw'           => 'bw_download',
+                'status'       => 'status',
+            ];
+            // Normalize each header (lowercase, strip non-alphanumeric) -> canonical key.
+            // 'id' is deliberately unmapped so a site's own id is never imported.
+            $mappedHeader = [];
+            foreach ($header as $col) {
+                $norm = preg_replace('/[^a-z0-9]/', '', strtolower(trim((string)$col)));
+                if ($norm === 'projectcode' || $norm === 'projectid' || $norm === 'project') {
+                    $mappedHeader[] = '__project_ref';
+                } elseif (isset($columnMap[$norm])) {
+                    $mappedHeader[] = $columnMap[$norm];
+                } else {
+                    $mappedHeader[] = null;
+                }
+            }
+
             $imported = 0;
+            $updated = 0;
             $errors = [];
             $row = 1;
 
@@ -283,27 +345,68 @@ switch ($action) {
             try {
                 while (($data = fgetcsv($handle)) !== false) {
                     $row++;
-                    if (count($data) < 3) continue;
+                    if (count($data) < 2) {
+                        continue;
+                    }
 
                     try {
-                        $db->insert('sites', [
-                            'project_id' => (int) ($data[0] ?? 1),
-                            'site_code' => $data[1] ?? '',
-                            'location_name' => $data[2] ?? '',
-                            'site_name' => $data[3] ?? '',
-                            'barangay' => $data[4] ?? '',
-                            'municipality' => $data[5] ?? '',
-                            'province' => $data[6] ?? '',
-                            'island_group' => $data[7] ?? '',
-                            'latitude' => $data[8] ? (float) $data[8] : null,
-                            'longitude' => $data[9] ? (float) $data[9] : null,
-                            'site_type' => $data[10] ?? '',
-                            'isp_provider' => $data[11] ?? '',
-                            'last_mile_tech' => $data[12] ?? '',
-                            'bw_download' => $data[13] ? (float) $data[13] : 0,
-                            'status' => $data[14] ?? 'PENDING',
-                        ]);
-                        $imported++;
+                        $site = [
+                            'site_code' => '', 'location_name' => '', 'site_name' => '',
+                            'barangay' => '', 'municipality' => '', 'province' => '',
+                            'district' => '', 'island_group' => '', 'latitude' => null,
+                            'longitude' => null, 'site_type' => '', 'isp_provider' => '',
+                            'last_mile_tech' => '', 'bw_download' => 0, 'status' => 'PENDING',
+                        ];
+                        $projectRef = null;
+                        foreach ($data as $i => $val) {
+                            $key = $mappedHeader[$i] ?? null;
+                            if ($key === null) {
+                                continue;
+                            }
+                            if ($key === '__project_ref') {
+                                $projectRef = $val;
+                            } else {
+                                $site[$key] = $val;
+                            }
+                        }
+
+                        // Resolve + validate the project (numeric id or a code like 'fw').
+                        $projectId = 0;
+                        if ($projectRef !== null && $projectRef !== '') {
+                            if (is_numeric($projectRef)) {
+                                $exists = $db->fetchOne('SELECT id FROM projects WHERE id = ?', [(int)$projectRef]);
+                                $projectId = $exists ? (int)$exists['id'] : 0;
+                            } else {
+                                $resolved = $db->fetchColumn('SELECT id FROM projects WHERE LOWER(code) = ?', [strtolower(trim((string)$projectRef))]);
+                                $projectId = $resolved ? (int)$resolved : 0;
+                            }
+                        }
+                        if (!$projectId) {
+                            $errors[] = "Row {$row}: unknown or missing project";
+                            continue;
+                        }
+
+                        $site['site_code'] = trim((string)$site['site_code']);
+                        if ($site['site_code'] === '') {
+                            $errors[] = "Row {$row}: missing site_code";
+                            continue;
+                        }
+
+                        $site['latitude']    = ($site['latitude'] !== '' && $site['latitude'] !== null) ? (float)$site['latitude'] : null;
+                        $site['longitude']   = ($site['longitude'] !== '' && $site['longitude'] !== null) ? (float)$site['longitude'] : null;
+                        $site['bw_download'] = ($site['bw_download'] !== '' && $site['bw_download'] !== null) ? (float)$site['bw_download'] : 0;
+
+                        // Upsert on (project_id, site_code): re-importing an export updates
+                        // existing sites instead of creating duplicates.
+                        $existing = $db->fetchOne('SELECT id FROM sites WHERE project_id = ? AND site_code = ?', [$projectId, $site['site_code']]);
+                        if ($existing) {
+                            $db->update('sites', $site, 'id = ?', [$existing['id']]);
+                            $updated++;
+                        } else {
+                            $site['project_id'] = $projectId;
+                            $db->insert('sites', $site);
+                            $imported++;
+                        }
                     } catch (Exception $e) {
                         $errors[] = "Row {$row}: " . $e->getMessage();
                     }
@@ -311,8 +414,9 @@ switch ($action) {
                 $db->commit();
                 ApiResponse::success([
                     'imported' => $imported,
-                    'errors' => $errors,
-                ], "Imported {$imported} sites");
+                    'updated'  => $updated,
+                    'errors'   => $errors,
+                ], "Imported {$imported}, updated {$updated} sites");
             } catch (Exception $e) {
                 $db->rollback();
                 ApiResponse::error('Import failed: ' . $e->getMessage(), 500);
