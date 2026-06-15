@@ -160,6 +160,32 @@ switch ($action) {
             ApiResponse::error('Site ID required', 400);
             exit;
         }
+        $site = $db->fetchOne('SELECT id FROM sites WHERE id = ?', [$siteId]);
+        if (!$site) {
+            ApiResponse::error('Site not found', 404);
+            exit;
+        }
+        // Safety: a site carries operational history. The schema CASCADE-deletes
+        // free_wifi_daily_logs, site_status_events, and site_photos and SET NULLs
+        // dict_project_entries / milestones when a site is hard-deleted, which would
+        // silently destroy records. Refuse to delete a site that still has dependents
+        // so history is never lost by accident; only empty sites can be removed.
+        $dependents = [
+            'daily logs'    => (int) $db->fetchColumn('SELECT COUNT(*) FROM free_wifi_daily_logs WHERE site_id = ?', [$siteId]),
+            'entries'       => (int) $db->fetchColumn('SELECT COUNT(*) FROM dict_project_entries WHERE site_id = ?', [$siteId]),
+            'photos'        => (int) $db->fetchColumn('SELECT COUNT(*) FROM site_photos WHERE site_id = ?', [$siteId]),
+            'status events' => (int) $db->fetchColumn('SELECT COUNT(*) FROM site_status_events WHERE site_id = ?', [$siteId]),
+        ];
+        $blocking = [];
+        foreach ($dependents as $label => $count) {
+            if ($count > 0) {
+                $blocking[] = "{$count} {$label}";
+            }
+        }
+        if ($blocking) {
+            ApiResponse::error('Cannot delete: site still has ' . implode(', ', $blocking) . '. Remove or reassign them first.', 409);
+            exit;
+        }
         $db->delete('sites', 'id = ?', [$siteId]);
         ApiResponse::success(null, 'Site deleted');
         break;

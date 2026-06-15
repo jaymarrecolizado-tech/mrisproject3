@@ -6,7 +6,7 @@ Manage DICT projects and provide project data for reports, dashboard, map, entri
 
 ## Status
 
-**Implemented** — automated checks green (tsc clean, 42/42 tests, `DictProjects.tsx` 0 lint errors, PHP syntax clean). Manual CRUD + permission verification still pending (see Tests and Verification).
+**Verified** — spec-vs-code review complete; 2 additional bugs fixed this pass (Free WiFi card leak, dead entries-tab spinner); automated checks green (tsc clean, 42/42 tests, `DictProjects.tsx` 0 lint errors / 7 `no-explicit-any` warnings, PHP syntax clean). Manual browser checks (list render, drill-down chart, milestone CRUD, site-detail entries tab) confirmed by the user. Permission gating (view vs manage/edit) is the one remaining manual item.
 
 ## Domain Rule (applies here)
 
@@ -41,7 +41,7 @@ Free WiFi is the ONLY project with daily logs (`free_wifi_daily_logs`). All othe
 
 | Function / Area | File | Status | What Exists | What Is Missing | Acceptance Criteria |
 | --- | --- | --- | --- | --- | --- |
-| Projects list (cards) | `DictProjects.tsx` | Implemented | Cards show name/full_name/completion % + 4 accomplishment counts; data from `projects.list`; mock fallback when API empty | — | Cards render real `completion_rate` + entry counts on real DB |
+| Projects list (cards) | `DictProjects.tsx` | Implemented | Cards show name/full_name/completion % + 4 accomplishment counts; data from `projects.list` filtered to `type === 'milestone'` (excludes Free WiFi/daily); mock fallback when API empty | — | Cards render real `completion_rate` + entry counts on real DB; no daily-type cards |
 | Accomplishment chart | `DictProjects.tsx` | Implemented | Bar chart of sites by operational status (UP/PARTIAL/DOWN/PENDING/DECOMMISSIONED) | — | Chart shows real site-status distribution |
 | Milestones panel | `DictProjects.tsx` | Implemented | List/create/edit/delete milestones per project (`milestones.*`) | — | Milestone CRUD persists |
 | Sites table | `DictProjects.tsx` | Implemented | Search, status filter (site operational statuses), sort, pagination | — | Filter/search match site vocabulary |
@@ -76,15 +76,20 @@ Free WiFi is the ONLY project with daily logs (`free_wifi_daily_logs`). All othe
 3. **Lint fixes** — removed two synchronous `setLoading*(true)` calls flagged by `react-hooks` (cascading-render smell), matching the working main-effect pattern (loading initializes `true`; set `false` only in the async callback).
 4. **Type fix** — added `DECOMMISSIONED` to `Site.status` union (`src/types/index.ts`) to match the schema.
 
+### Verification pass (this update)
+
+5. **Free WiFi card-leak fix** — `projects.list` returns all active projects (no `type` filter), and `DictProjects.tsx` only filtered `type === 'milestone'` in its *mock* fallback, not the real API path. On a seeded DB the Free WiFi card (type `daily`) leaked onto `/dict-projects`, despite Free WiFi having its own `/freewifi` page and no `dict_project_entries` — a domain-rule violation. Added `type` to `ProjectWithStats` and filtered the real API list by `type === 'milestone'` too. The unfiltered `projects.list` is still consumed by `Layout`/`MapView`/`Reports`, which legitimately need every project, so the fix is frontend-only.
+6. **Entries-tab spinner fix** — `SiteDetailModal`'s `loadingEntries` initialized `false` and was never set `true` (the `react-hooks/set-state-in-effect` rule forbids a synchronous `setLoadingEntries(true)` inside the effect). The spinner was dead code, so the entries tab flashed "No accomplishment entries yet." before the fetch resolved. Fixed by initializing `loadingEntries` to `true` (matching the main `isLoading` pattern), so the spinner shows on first tab entry while staying lint-clean.
+
 ## Acceptance Criteria
 
 - [x] Projects route requires `projects.view`.
 - [x] Project CRUD + stats behavior documented and present.
 - [x] Delete is safe (soft delete; no cascade to sites/entries/milestones).
-- [x] Domain rule honored (entries, not daily logs).
+- [x] Domain rule honored (entries, not daily logs) — and the page now excludes `daily`-type (Free WiFi) projects, not just the mock fallback.
 - [x] Automated checks green (tsc, lint for this file, tests, PHP syntax).
-- [ ] Manual project CRUD verification completed.
-- [ ] Manual permission verification completed (view vs manage/edit).
+- [x] Manual project-list / drill-down / milestone CRUD / entries verification completed (confirmed in browser by user). Project-level create/edit UI does not exist by design (projects are seeded), so there is no UI CRUD to manually verify.
+- [ ] Manual permission verification completed (view vs manage/edit) — remaining.
 
 ## Tests and Verification
 
@@ -92,8 +97,8 @@ Free WiFi is the ONLY project with daily logs (`free_wifi_daily_logs`). All othe
 - [x] `npm test` — 42/42 (no Feature-05-specific tests; covered by existing suite)
 - [x] `npm run lint` — `DictProjects.tsx` has **0 errors** (7 `no-explicit-any` warnings, acceptable)
 - [x] `php -l api/routes/projects.php` — no syntax errors
-- [ ] Manual: project list renders real completion % + counts; drill-down chart shows site-status distribution; milestone CRUD; site detail entries tab; add-entry flow.
-- [ ] Manual: non-permitted user cannot reach route/actions.
+- [x] Manual: project list renders real completion % + counts; drill-down chart shows site-status distribution; milestone CRUD; site detail entries tab; add-entry flow — confirmed in browser by user.
+- [ ] Manual: non-permitted user cannot reach route/actions — remaining.
 
 ## Risks and Dependencies
 

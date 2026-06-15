@@ -19,6 +19,7 @@ interface ProjectWithStats {
   full_name: string;
   description: string;
   color: string;
+  type: 'daily' | 'milestone';
   completion_rate: number;
   total_sites: number;
   completed_entries: number;
@@ -79,19 +80,27 @@ export default function DictProjects() {
     });
   }, []);
 
-  const milestoneProjects = projectsList.length > 0 ? projectsList : projects.filter(p => p.type === 'milestone').map(p => ({
-    id: p.id,
-    name: p.name,
-    full_name: p.fullName,
-    description: p.description,
-    color: p.color,
-    completion_rate: p.completionRate,
-    total_sites: p.totalSites,
-    completed_entries: 0,
-    ongoing_entries: 0,
-    planned_entries: 0,
-    delayed_entries: 0,
-  }));
+  // Domain rule: this page tracks accomplishment via dict_project_entries, which only
+  // milestone-type projects use. Free WiFi (type 'daily') is tracked via daily logs on its
+  // own /freewifi page, so exclude it here — for both the real API list and the mock
+  // fallback. The unfiltered projects.list is still consumed by Layout/Map/Reports, which
+  // legitimately need every project.
+  const milestoneProjects = projectsList.length > 0
+    ? projectsList.filter(p => p.type === 'milestone')
+    : projects.filter(p => p.type === 'milestone').map(p => ({
+        id: p.id,
+        name: p.name,
+        full_name: p.fullName,
+        description: p.description,
+        color: p.color,
+        type: p.type,
+        completion_rate: p.completionRate,
+        total_sites: p.totalSites,
+        completed_entries: 0,
+        ongoing_entries: 0,
+        planned_entries: 0,
+        delayed_entries: 0,
+      }));
 
   const activeProject = selectedProject ? milestoneProjects.find(p => p.id === selectedProject) : null;
   const projectSites = useMemo(() => {
@@ -522,7 +531,7 @@ function MilestonesPanel({ projectId, canManage }: { projectId: string; canManag
 function SiteDetailModal({ site, projectId, onClose, onAddEntry, canCreateEntry }: { site: Site; projectId: string; onClose: () => void; onAddEntry: () => void; canCreateEntry: boolean }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'entries' | 'photos'>('overview');
   const [entries, setEntries] = useState<DictProjectEntry[]>([]);
-  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [loadingEntries, setLoadingEntries] = useState(true);
 
   useEffect(() => {
     if (activeTab !== 'entries') return;

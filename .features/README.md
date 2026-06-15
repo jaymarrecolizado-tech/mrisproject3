@@ -48,8 +48,8 @@ A feature is not `Done` until:
 | `02-dashboard` | Dashboard analytics | Verified |
 | `03-map` | Map and geospatial project view | Implemented |
 | `04-free-wifi` | Free WiFi daily logs | Implemented |
-| `05-projects` | DICT projects | Implemented |
-| `06-sites` | Sites and site management | Draft |
+| `05-projects` | DICT projects | Verified |
+| `06-sites` | Sites and site management | Implemented |
 | `07-photos` | Site photos | Draft |
 | `08-milestones` | Project milestones | Draft |
 | `09-entries` | DICT project entries | Draft |
