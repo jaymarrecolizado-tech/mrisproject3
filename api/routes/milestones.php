@@ -67,6 +67,17 @@ switch ($action) {
             ApiResponse::error('Project ID and title required', 400);
             exit;
         }
+        // Validate the project (accept numeric id or code); an unknown project would
+        // otherwise trip a SQL FK error (HTTP 500). Mirrors sites.create.
+        if (!is_numeric($data['project_id'])) {
+            $resolved = $db->fetchColumn('SELECT id FROM projects WHERE LOWER(code) = ?', [strtolower((string)$data['project_id'])]);
+            $data['project_id'] = $resolved ?: 0;
+        }
+        if (!$db->fetchOne('SELECT id FROM projects WHERE id = ?', [(int)$data['project_id']])) {
+            ApiResponse::error('Unknown project_id: ' . $input['project_id'], 400);
+            exit;
+        }
+        $data['project_id'] = (int)$data['project_id'];
         $newId = $db->insert('milestones', $data);
         ApiResponse::success(['id' => $newId], 'Milestone created', 201);
         break;
@@ -151,6 +162,10 @@ switch ($action) {
         $msId = $id ?? $_GET['id'] ?? null;
         if (!$msId) {
             ApiResponse::error('Milestone ID required', 400);
+            exit;
+        }
+        if (!$db->fetchOne('SELECT id FROM milestones WHERE id = ?', [$msId])) {
+            ApiResponse::error('Milestone not found', 404);
             exit;
         }
         $db->delete('milestones', 'id = ?', [$msId]);

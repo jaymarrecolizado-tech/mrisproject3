@@ -51,7 +51,7 @@ A feature is not `Done` until:
 | `05-projects` | DICT projects | Verified |
 | `06-sites` | Sites and site management | Implemented |
 | `07-photos` | Site photos | Implemented |
-| `08-milestones` | Project milestones | Draft |
+| `08-milestones` | Project milestones | Implemented |
 | `09-entries` | DICT project entries | Draft |
 | `10-reports` | Report generation and downloads | In Progress |
 | `11-users` | User management | Draft |
